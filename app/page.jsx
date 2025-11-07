@@ -1,31 +1,27 @@
 // app/page.js
 'use client'
 
-import { useEffect } from 'react' // Import useEffect
+import { useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
-import { useRouter } from 'next/navigation' // Import useRouter
+import { useRouter } from 'next/navigation'
+import Image from 'next/image' // Import Image component for your logo
 
 export default function Welcome() {
-  const router = useRouter() // Get the router
+  const router = useRouter()
 
-  // This hook runs automatically when the page loads
+  // --- All your useEffect and handleGoogleLogin logic stays exactly the same ---
   useEffect(() => {
-    
-    // 1. Define a function to check the user's status
     const checkUserStatus = async () => {
-      // 2. Get the current user from Supabase
       const { data: { user } } = await supabase.auth.getUser()
 
       if (user) {
-        // 3. If a user is logged in, check their profile
         const { data: profile, error } = await supabase
           .from('profiles')
-          .select('role') // We only need to know their role
-          .eq('id', user.id) // Get the profile where the ID matches the user's ID
-          .single() // We expect only one row
+          .select('role')
+          .eq('id', user.id)
+          .single()
 
         if (profile && profile.role) {
-          // 4. User has a profile AND a role, send to dashboard
           if (profile.role === 'student') {
             router.push('/dashboard/student')
           } else if (profile.role === 'educator') {
@@ -37,15 +33,11 @@ export default function Welcome() {
           router.push('/role-selection')
         }
       }
-      // 6. If no user is logged in (user is null), do nothing.
-      // The user will just see the Welcome page below.
     }
 
-    // 7. Call the function
     checkUserStatus()
-  }, [router]) // The effect depends on the router
+  }, [router])
 
-  // This function is still here for new users
   const handleGoogleLogin = async () => {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -55,28 +47,45 @@ export default function Welcome() {
     }
   }
 
-  // This is the HTML. Most users will be redirected *before*
-  // they even see this, but new users will.
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="w-full max-w-md p-8 text-center bg-white rounded-lg shadow-lg">
-        <h1 className="text-4xl font-bold text-gray-800">
-          Welcome to ReMindEd
-        </h1>
-        <p className="mt-4 text-lg text-gray-600">
-          Your AI-powered spaced repetition learning tool.
-        </p>
-        
-        <div className="mt-8">
-          <button
-            onClick={handleGoogleLogin}
-            className="flex items-center justify-center w-full px-4 py-3 font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            <svg /* Google Icon SVG */ >...</svg>
-            Continue with Google
-          </button>
-        </div>
+    // Added p-6 for slightly more mobile padding
+    <div className="flex flex-col items-center justify-center min-h-screen bg-background p-6 text-center">
+      
+      {/* Logo Container */}
+      {/* Mobile: mb-12 (3rem) */}
+      {/* Desktop: md:mb-16 (4rem) */}
+      <div className="mb-12 md:mb-16">
+        <Image
+          src="/RemindED_Logo.png"
+          alt="RemindED Logo"
+          width={200} // Base width for aspect ratio
+          height={200} // Base height for aspect ratio
+          // Mobile: 150px wide
+          // Desktop: 200px wide
+          // h-auto is crucial to maintain aspect ratio
+          className="w-[150px] h-auto md:w-[200px]"
+          priority
+        />
       </div>
+
+      {/* Google Login Button */}
+      <button
+        onClick={handleGoogleLogin}
+        // w-full is great for mobile, max-w-sm (384px) stops it
+        // from getting too wide on desktop.
+        className="flex items-center justify-center w-full max-w-sm px-6 py-3 font-medium text-white bg-indigo-600 rounded-lg shadow-md transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+      >
+        Continue with Google
+      </button>
+
+      {/* Welcome Text */}
+      <h1 
+        // Mobile: mt-12 (3rem) & text-2xl
+        // Desktop: md:mt-16 (4rem) & md:text-3xl
+        className="mt-12 md:mt-16 text-2xl md:text-3xl font-bold text-foreground"
+      >
+        Welcome to <span className="text-indigo-600">RemindED.</span>
+      </h1>
     </div>
   )
 }
