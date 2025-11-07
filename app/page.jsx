@@ -1,4 +1,4 @@
-
+// app/page.js
 'use client'
 
 import { useEffect } from 'react' // Import useEffect
@@ -34,7 +34,7 @@ export default function Welcome() {
         } else {
           // 5. User is logged in, but has no role (or no profile)
           // This means they are a new user who needs to set up
-          router.push('/profile-setup')
+          router.push('/role-selection')
         }
       }
       // 6. If no user is logged in (user is null), do nothing.
