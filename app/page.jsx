@@ -1,3 +1,4 @@
+// app/page.js
 'use client'
 
 import { useEffect } from 'react'
@@ -27,7 +28,9 @@ export default function Welcome() {
             router.push('/dashboard/faculty')
           }
         } else {
-          router.push('/profile-setup')
+          // 5. User is logged in, but has no role (or no profile)
+          // This means they are a new user who needs to set up
+          router.push('/role-selection')
         }
       }
     }
