@@ -10,12 +10,10 @@ export default function SelectRole() {
   const router = useRouter()
 
   const handleContinue = () => {
-    if (role) {
-      // TODO: Where should this button navigate to?
-      // We need to update this path to point to your
-      // "profile fill out" form page.
-      // What is the new URL for that page?
-      router.push(`/role-selection?role=${role}`) 
+    if (role === 'student') {
+      router.push('/student-setup')
+    } else if (role === 'educator') {
+      router.push('/educator-setup')
     }
   }
 

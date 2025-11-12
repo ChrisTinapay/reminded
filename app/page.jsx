@@ -28,8 +28,6 @@ export default function Welcome() {
             router.push('/dashboard/faculty')
           }
         } else {
-          // 5. User is logged in, but has no role (or no profile)
-          // This means they are a new user who needs to set up
           router.push('/role-selection')
         }
       }
@@ -48,42 +46,26 @@ export default function Welcome() {
   }
 
   return (
-    // Added p-6 for slightly more mobile padding
     <div className="flex flex-col items-center justify-center min-h-screen bg-background p-6 text-center">
-      
-      {/* Logo Container */}
-      {/* Mobile: mb-12 (3rem) */}
-      {/* Desktop: md:mb-16 (4rem) */}
       <div className="mb-12 md:mb-16">
         <Image
           src="/RemindED_Logo.png"
           alt="RemindED Logo"
-          width={200} // Base width for aspect ratio
-          height={200} // Base height for aspect ratio
-          // Mobile: 150px wide
-          // Desktop: 200px wide
-          // h-auto is crucial to maintain aspect ratio
+          width={200} 
+          height={200} 
           className="w-[150px] h-auto md:w-[200px]"
           priority
         />
       </div>
 
-      {/* Google Login Button */}
       <button
         onClick={handleGoogleLogin}
-        // w-full is great for mobile, max-w-sm (384px) stops it
-        // from getting too wide on desktop.
+  
         className="flex items-center justify-center w-full max-w-sm px-6 py-3 font-medium text-white bg-indigo-600 rounded-lg shadow-md transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
       >
         Continue with Google
       </button>
-
-      {/* Welcome Text */}
-      <h1 
-        // Mobile: mt-12 (3rem) & text-2xl
-        // Desktop: md:mt-16 (4rem) & md:text-3xl
-        className="mt-12 md:mt-16 text-2xl md:text-3xl font-bold text-foreground"
-      >
+      <h1 className="mt-12 md:mt-16 text-2xl md:text-3xl font-bold text-foreground">
         Welcome to <span className="text-indigo-600">RemindED.</span>
       </h1>
     </div>
