@@ -53,7 +53,7 @@ export default function EducatorSetup() {
     if (error) {
       setMessage(`Error: ${error.message}`)
     } else {
-      router.push('/dashboard/faculty') // Success! Send to dashboard
+      router.push('/dashboard/educator') // Success! Send to dashboard
     }
   }
 

@@ -25,7 +25,7 @@ export default function Welcome() {
           if (profile.role === 'student') {
             router.push('/dashboard/student')
           } else if (profile.role === 'educator') {
-            router.push('/dashboard/faculty')
+            router.push('/dashboard/educator')
           }
         } else {
           router.push('/role-selection')
