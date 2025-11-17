@@ -1,5 +1,6 @@
 // app/dashboard/layout.jsx
 import Header from '@/components/Header' // Import our new component
+import NavigationBar from '@/components/NavigationBar' // Import the nav bar
 
 export default function DashboardLayout({ children }) {
   // This 'children' prop is the actual page (student or faculty)
@@ -7,9 +8,13 @@ export default function DashboardLayout({ children }) {
     <div className="flex flex-col min-h-screen">
       {/* The Header will be at the top of every page in the dashboard */}
       <Header />
-      
+      <NavigationBar />
       {/* The rest of the page content */}
-      <main className="flex-grow p-6 bg-gray-50">
+      <main className="
+        p-6 
+        pb-20 
+        md:pb-6  
+        md:pr-64 ">
         {children}
       </main>
     </div>
