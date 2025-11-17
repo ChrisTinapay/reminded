@@ -1,11 +1,13 @@
 // components/NavigationBar.jsx
+// components/NavigationBar.jsx
 'use client'
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import { useState, useEffect } from 'react' // Import useState and useEffect
 
-// --- Icon Components (we'll just define them here for simplicity) ---
+// --- Icon Components (these are all unchanged) ---
 const DashboardIcon = () => (
   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18M3 6h18M3 18h18" />
@@ -25,6 +27,30 @@ const LogoutIcon = () => (
 
 export default function NavigationBar() {
   const router = useRouter()
+  // 1. Add state to store the user's role
+  const [userRole, setUserRole] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  // 2. Add useEffect to fetch the role when the component loads
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single()
+        
+        if (profile) {
+          setUserRole(profile.role)
+        }
+      }
+      setLoading(false)
+    }
+    
+    fetchUserRole()
+  }, [])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -39,33 +65,51 @@ export default function NavigationBar() {
     </Link>
   )
 
+  // Helper component for a loading placeholder
+  const LoadingSkeleton = () => (
+    <div className="flex flex-col items-center justify-center p-2 text-gray-400 animate-pulse md:flex-row md:justify-start md:space-x-3">
+      <div className="w-6 h-6 bg-gray-200 rounded-md"></div>
+      <span className="w-16 h-4 mt-1 bg-gray-200 rounded-md md:mt-0"></span>
+    </div>
+  )
+
   return (
     <nav className="
-      /* --- Mobile Styles (Default) --- */
-      fixed bottom-0 left-0
-      z-40
-      flex h-16 w-full
-      flex-row items-center justify-around
+      /* --- All your mobile/desktop styles are unchanged --- */
+      fixed bottom-0 left-0 z-40
+      flex h-16 w-full flex-row items-center justify-around
       border-t border-gray-200 bg-white
-      
-      /* --- Desktop Styles (md:) --- */
       md:fixed md:top-0 md:right-0
       md:h-screen md:w-64
       md:flex-col md:items-stretch md:justify-start
       md:space-y-4 md:border-t-0 md:border-l md:p-4
     ">
       
-      {/* These links will stack horizontally on mobile and vertically on desktop */}
+      {/* 3. This section is now dynamic */}
       <div className="flex w-full flex-row justify-around md:flex-col md:space-y-2">
-        <NavLink href="/dashboard/student" icon={<DashboardIcon />} text="Dashboard" />
-        <NavLink href="/profile" icon={<ProfileIcon />} text="Profile" />
-        {/* We'll need to create /profile page later */}
+        {loading ? (
+          // Show placeholders while loading the user's role
+          <>
+            <LoadingSkeleton />
+            <LoadingSkeleton />
+          </>
+        ) : (
+          // Once loaded, show the correct links
+          <>
+            <NavLink
+              href={userRole === 'student' ? '/dashboard/student' : '/dashboard/educator'}
+              icon={<DashboardIcon />}
+              text="Dashboard"
+            />
+            <NavLink href="/profile" icon={<ProfileIcon />} text="Profile" />
+          </>
+        )}
       </div>
 
       {/* Spacer for desktop */}
       <div className="hidden md:block md:flex-grow" />
 
-      {/* Logout Button */}
+      {/* Logout Button (unchanged) */}
       <button
         onClick={handleSignOut}
         className="flex flex-col items-center justify-center p-2 text-red-600 rounded-md hover:bg-red-50 md:flex-row md:justify-start md:space-x-3"
