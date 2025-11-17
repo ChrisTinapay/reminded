@@ -2,9 +2,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabaseClient'
+import { supabase } from '../../_lib/supabaseClient'
 import Link from 'next/link'
-import Image from 'next/image'
 
 
 export default function Header() {

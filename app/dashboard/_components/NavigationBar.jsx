@@ -1,10 +1,8 @@
-// components/NavigationBar.jsx
-// components/NavigationBar.jsx
 'use client'
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabaseClient'
+import { supabase } from '../../_lib/supabaseClient'
 import { useState, useEffect } from 'react' // Import useState and useEffect
 
 // --- Icon Components (these are all unchanged) ---
@@ -74,17 +72,7 @@ export default function NavigationBar() {
   )
 
   return (
-    <nav className="
-      /* --- All your mobile/desktop styles are unchanged --- */
-      fixed bottom-0 left-0 z-40
-      flex h-16 w-full flex-row items-center justify-around
-      border-t border-gray-200 bg-white
-      md:fixed md:top-0 md:right-0
-      md:h-screen md:w-64
-      md:flex-col md:items-stretch md:justify-start
-      md:space-y-4 md:border-t-0 md:border-l md:p-4
-    ">
-      
+    <nav className="fixed bottom-0 left-0 z-40 flex h-16 w-full flex-row items-center justify-around border-t border-gray-200 bg-white md:fixed md:top-0 md:right-0 md:h-screen md:w-64 md:flex-col md:items-stretch md:justify-start md:space-y-4 md:border-t-0 md:border-l md:p-4">
       {/* 3. This section is now dynamic */}
       <div className="flex w-full flex-row justify-around md:flex-col md:space-y-2">
         {loading ? (
