@@ -2,7 +2,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { supabase } from '@/lib/supabaseClient'
+import { supabase } from './_lib/supabaseClient'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image' // Import Image component for your logo
 
