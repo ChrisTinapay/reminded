@@ -1,33 +1,60 @@
 // app/registration/student-setup/page.jsx
+// app/registration/student-setup/page.jsx
 'use client'
 
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'next/navigation'
+import { supabase } from '../../_lib/supabaseClient' // Updated path
 
 export default function StudentSetup() {
+  const router = useRouter()
+  
+  // Form States
   const [email, setEmail] = useState('')
   const [fullName, setFullName] = useState('')
-  const [academicLevel, setAcademicLevel] = useState('')
-  const [program, setProgram] = useState('')
+  const [academicLevelId, setAcademicLevelId] = useState('')
+  const [programId, setProgramId] = useState('')
+
+  // Dropdown Data Lists
+  const [levelsList, setLevelsList] = useState([])
+  const [programsList, setProgramsList] = useState([])
   
+  // Loading States
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
-  const router = useRouter()
 
-  // This runs once to get the user's pre-populated info
+  // 1. Fetch User & Dropdown Data
   useEffect(() => {
-    const fetchUser = async () => {
+    const initializePage = async () => {
+      // A. Get User Info
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         setEmail(user.email)
         setFullName(user.user_metadata.full_name)
       } else {
-        router.push('/') // No user, send them to login
+        router.push('/')
+        return
       }
+
+      // B. Fetch Academic Levels
+      const { data: levels } = await supabase
+        .from('academic_levels')
+        .select('id, name')
+        .order('name', { ascending: true })
+
+      // C. Fetch Programs
+      const { data: programs } = await supabase
+        .from('programs')
+        .select('id, name')
+        .order('name', { ascending: true })
+
+      if (levels) setLevelsList(levels)
+      if (programs) setProgramsList(programs)
+      
       setLoading(false)
     }
-    fetchUser()
+
+    initializePage()
   }, [router])
 
   const handleProfileSave = async (e) => {
@@ -36,34 +63,29 @@ export default function StudentSetup() {
     setMessage('')
 
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      setMessage('Error: No user found.')
-      setLoading(false)
-      return
-    }
+    if (!user) return
 
-    // Prepare the data for the 'profiles' table
+    // 2. Save the Profile with IDs
     const profileData = {
       id: user.id,
       full_name: fullName,
-      role: 'student', // We hard-code the role here
-      academic_level: academicLevel,
-      program: program,
+      role: 'student',
+      academic_level_id: academicLevelId, // Saving the ID, not text
+      program_id: programId,              // Saving the ID, not text
     }
 
     const { error } = await supabase.from('profiles').upsert(profileData)
 
-    setLoading(false)
-
     if (error) {
       setMessage(`Error: ${error.message}`)
+      setLoading(false)
     } else {
-      router.push('/dashboard/student') // Success! Send to dashboard
+      router.push('/dashboard/student')
     }
   }
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading profile...</div>
+    return <div className="flex items-center justify-center min-h-screen">Loading options...</div>
   }
 
   return (
@@ -74,6 +96,7 @@ export default function StudentSetup() {
         </h2>
         
         <form className="space-y-6" onSubmit={handleProfileSave}>
+          {/* Email (Read Only) */}
           <div>
             <label className="block text-sm font-medium text-gray-700">Email</label>
             <input
@@ -83,48 +106,63 @@ export default function StudentSetup() {
               className="w-full px-3 py-2 mt-1 bg-gray-100 border border-gray-300 rounded-md shadow-sm"
             />
           </div>
-      
-        <div>
-        <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">
-            Full Name
-        </label>
-        <input
-            id="fullName"
-            type="text"
-            value={fullName} // Still pre-populated
-            onChange={(e) => setFullName(e.target.value)} // Now it's editable
-            className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" // Removed 'disabled' styles
-        />
-        </div>
-          <hr />
 
+          {/* Full Name (Editable) */}
           <div>
-            <label htmlFor="academic_level" className="block text-sm font-medium text-gray-700">
-              Academic Level
+            <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">
+              Full Name
             </label>
             <input
-              id="academic_level"
+              id="fullName"
               type="text"
-              required
-              placeholder="e.g., 1st Year, Grade 12"
-              value={academicLevel}
-              onChange={(e) => setAcademicLevel(e.target.value)}
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
               className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
+
+          <hr />
+
+          {/* Academic Level Dropdown */}
+          <div>
+            <label htmlFor="academicLevel" className="block text-sm font-medium text-gray-700">
+              Academic Level
+            </label>
+            <select
+              id="academicLevel"
+              required
+              value={academicLevelId}
+              onChange={(e) => setAcademicLevelId(e.target.value)}
+              className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm bg-white focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Select your level...</option>
+              {levelsList.map((level) => (
+                <option key={level.id} value={level.id}>
+                  {level.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Program Dropdown */}
           <div>
             <label htmlFor="program" className="block text-sm font-medium text-gray-700">
               Program / Strand
             </label>
-            <input
+            <select
               id="program"
-              type="text"
               required
-              placeholder="e.g., Computer Science, STEM"
-              value={program}
-              onChange={(e) => setProgram(e.target.value)}
-              className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            />
+              value={programId}
+              onChange={(e) => setProgramId(e.target.value)}
+              className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm bg-white focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Select your program...</option>
+              {programsList.map((program) => (
+                <option key={program.id} value={program.id}>
+                  {program.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <button

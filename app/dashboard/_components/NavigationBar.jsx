@@ -4,7 +4,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "../../_lib/supabaseClient";
 import { useState, useEffect } from "react"; // Import useState and useEffect
 
 // --- Icon Components (these are all unchanged) ---
