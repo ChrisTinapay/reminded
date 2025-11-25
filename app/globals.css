@@ -1,26 +1,51 @@
-@import "tailwindcss";
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
+  /* light mode colors */
+  --color-neutral: #f6f7f7;
+  --color-primary: #1f2937;
+  --color-secondary: #4b5563;
+  --btn-cta: #4f46e5;
+
+  /* brand gradient from right to left */
+  --brand-gradient-r: #1f2937;
+  --brand-gradient-l: #58759d;
+
+  /* secondary brand from right via left */
+  --brand-secondary-gradient-r: #2c1d78;
+  --brand-secondary-gradient-v: #9a87c6;
+  --brand-secondary-gradient-l: #499bac;
+
+  --btn-primary-lavender: #818cf8;
+  --btn-primary-teal: #2dd4bf;
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #1f2937;
+
+  /* Dark mode colors */
+  --dark-color-neutral: #111827;
+  --dark-color-neutral2: #1f2937;
+  --dark-color-primary: #e5e7eb;
+  --dark-color-secondary: #9ca3af;
+  --dark-btn-cta: #6366f1;
+
+  /* dark brand gradient */
+  --dark-brand-gradient-r: #374151;
+  --dark-brand-gradient-l: #6b7280;
+
+  /* dark secondary brand gradient */
+  --dark-brand-secondary-gradient-r: #4c3a8f;
+  --dark-brand-secondary-gradient-v: #b39ddb;
+  --dark-brand-secondary-gradient-l: #5fb3c4;
+
+  --dark-btn-primary-lavender: #a5b4fc;
+  --dark-btn-primary-teal: #5eead4;
+  --dark-foreground: #ededed;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /* fonts */
+  --font-inter: Inter, 'sans-serif';
+  --font-poppins: Poppins, 'sans-serif';
 }
