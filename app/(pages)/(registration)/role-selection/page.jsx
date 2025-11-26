@@ -44,7 +44,7 @@ export default function SelectRole() {
             onClick={() => setRole('educator')}
             className={`flex flex-col items-center justify-center w-full p-6 border-2 rounded-lg transition-all ${
               role === 'educator' 
-                ? 'border-blue-600 bg-blue-50' 
+                ? 'border-yellow-600 bg-blue-50' 
                 : 'border-blue-300 bg-white hover:bg-gray-100'
             }`}
           >
