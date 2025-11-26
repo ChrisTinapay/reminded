@@ -1,4 +1,3 @@
-// app/dashboard/educator/course/[courseId]/page.jsx
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -15,10 +14,14 @@ export default function CourseManagement() {
   const [course, setCourse] = useState(null)
   const [loading, setLoading] = useState(true)
   
-  // AI States
+  // AI & File States
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedQuestions, setGeneratedQuestions] = useState([])
   const [isReviewing, setIsReviewing] = useState(false) // Toggles between Upload vs Edit View
+  
+  // New State to track the file for saving later
+  const [uploadedFilePath, setUploadedFilePath] = useState(null)
+  const [uploadedFileName, setUploadedFileName] = useState(null)
 
   useEffect(() => {
     const fetchCourseDetails = async () => {
@@ -59,9 +62,53 @@ export default function CourseManagement() {
     }
   }
 
+  // --- PUBLISH FUNCTION (Saves to Database) ---
   const handlePublish = async () => {
-    alert("Next Step: We will save these " + generatedQuestions.length + " questions to the database tables!")
-    // We will implement the database save here next
+    setLoading(true)
+    try {
+      // 1. Save the Material Reference
+      const { data: materialData, error: materialError } = await supabase
+        .from('learning_materials')
+        .insert({
+          course_id: courseId,
+          file_name: uploadedFileName,
+          file_path: uploadedFilePath
+        })
+        .select()
+        .single()
+
+      if (materialError) throw new Error("Failed to save material: " + materialError.message)
+
+      // 2. Prepare Questions for Insert
+      const questionsToInsert = generatedQuestions.map(q => ({
+        course_id: courseId,
+        material_id: materialData.id, // Link to the PDF we just saved
+        question_text: q.question_text,
+        choices: q.choices, // This goes into the JSONB column
+        correct_answer: q.correct_answer,
+        bloom_level: q.bloom_level
+      }))
+
+      // 3. Save All Questions (Bulk Insert)
+      const { error: questionsError } = await supabase
+        .from('questions')
+        .insert(questionsToInsert)
+
+      if (questionsError) throw new Error("Failed to save questions: " + questionsError.message)
+
+      alert("Success! Course content published.")
+      // Clear state and go back to upload view (or stay here)
+      setGeneratedQuestions([])
+      setIsReviewing(false)
+      setUploadedFileName(null)
+      setUploadedFilePath(null)
+
+    } catch (error) {
+      console.error(error)
+      alert("Publish Error: " + error.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   // --- FILE UPLOAD ---
@@ -75,6 +122,10 @@ export default function CourseManagement() {
         .upload(filename, file)
 
       if (uploadError) throw new Error(uploadError.message)
+
+      // Save file info for later
+      setUploadedFilePath(uploadData.path)
+      setUploadedFileName(file.name)
 
       const aiResult = await generateQuestionsFromPDF(uploadData.path)
       if (!aiResult.success) throw new Error(aiResult.error)
