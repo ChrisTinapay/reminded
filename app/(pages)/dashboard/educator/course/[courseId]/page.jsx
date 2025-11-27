@@ -13,19 +13,20 @@ export default function CourseManagement() {
 
   const [course, setCourse] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [studentCount, setStudentCount] = useState(0)
   
-  // AI & File States
+  // AI & File States (For New Uploads)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedQuestions, setGeneratedQuestions] = useState([])
-  const [isReviewing, setIsReviewing] = useState(false) // Toggles between Upload vs Edit View
+  const [isReviewing, setIsReviewing] = useState(false)
   
-  // New State to track the file for saving later
   const [uploadedFilePath, setUploadedFilePath] = useState(null)
   const [uploadedFileName, setUploadedFileName] = useState(null)
 
   useEffect(() => {
     const fetchCourseDetails = async () => {
-      const { data, error } = await supabase
+      // 1. Fetch Course Info
+      const { data: courseData, error } = await supabase
         .from('courses')
         .select(`*, academic_levels(name), programs(name)`)
         .eq('id', courseId)
@@ -34,39 +35,53 @@ export default function CourseManagement() {
       if (error) {
         alert('Course not found!')
         router.push('/dashboard/educator')
-      } else {
-        setCourse(data)
+        return
       }
+      
+      setCourse(courseData)
+
+      // 2. Count Students
+      if (courseData) {
+        const { count } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true })
+          .eq('role', 'student')
+          .eq('academic_level_id', courseData.academic_level_id)
+          .eq('program_id', courseData.program_id)
+        
+        setStudentCount(count || 0)
+      }
+      
       setLoading(false)
     }
+
     if (courseId) fetchCourseDetails()
   }, [courseId, router])
 
-  // --- EDITING FUNCTIONS ---
-  const handleQuestionEdit = (index, field, value) => {
+  // --- PRE-PUBLISH EDITING FUNCTIONS (Only for Review Mode) ---
+  const handleReviewEdit = (index, field, value) => {
     const updated = [...generatedQuestions]
     updated[index][field] = value
     setGeneratedQuestions(updated)
   }
 
-  const handleChoiceEdit = (qIndex, cIndex, value) => {
+  const handleReviewChoiceEdit = (qIndex, cIndex, value) => {
     const updated = [...generatedQuestions]
     updated[qIndex].choices[cIndex] = value
     setGeneratedQuestions(updated)
   }
 
-  const handleDeleteQuestion = (index) => {
-    if(confirm("Are you sure you want to delete this question?")) {
+  const handleReviewDelete = (index) => {
+    if(confirm("Remove this question from the draft?")) {
         const updated = generatedQuestions.filter((_, i) => i !== index)
         setGeneratedQuestions(updated)
     }
   }
 
-  // --- PUBLISH FUNCTION (Saves to Database) ---
   const handlePublish = async () => {
     setLoading(true)
     try {
-      // 1. Save the Material Reference
+      // 1. Save Material
       const { data: materialData, error: materialError } = await supabase
         .from('learning_materials')
         .insert({
@@ -74,34 +89,33 @@ export default function CourseManagement() {
           file_name: uploadedFileName,
           file_path: uploadedFilePath
         })
-        .select()
-        .single()
+        .select().single()
 
       if (materialError) throw new Error("Failed to save material: " + materialError.message)
 
-      // 2. Prepare Questions for Insert
+      // 2. Prepare Questions
       const questionsToInsert = generatedQuestions.map(q => ({
         course_id: courseId,
-        material_id: materialData.id, // Link to the PDF we just saved
+        material_id: materialData.id,
         question_text: q.question_text,
-        choices: q.choices, // This goes into the JSONB column
+        choices: q.choices,
         correct_answer: q.correct_answer,
         bloom_level: q.bloom_level
       }))
 
-      // 3. Save All Questions (Bulk Insert)
-      const { error: questionsError } = await supabase
-        .from('questions')
-        .insert(questionsToInsert)
+      // 3. Save Questions
+      const { error: questionsError } = await supabase.from('questions').insert(questionsToInsert)
 
-      if (questionsError) throw new Error("Failed to save questions: " + questionsError.message)
+      if (questionsError) throw new Error(questionsError.message)
 
-      alert("Success! Course content published.")
-      // Clear state and go back to upload view (or stay here)
+      alert("Success! Questions added to the bank.")
       setGeneratedQuestions([])
       setIsReviewing(false)
       setUploadedFileName(null)
       setUploadedFilePath(null)
+      
+      // Optional: Redirect to questions page to see them
+      router.push(`/dashboard/educator/course/${courseId}/questions`)
 
     } catch (error) {
       console.error(error)
@@ -117,13 +131,10 @@ export default function CourseManagement() {
     try {
       const filename = `${Date.now()}_${file.name}`
       const { data: uploadData, error: uploadError } = await supabase
-        .storage
-        .from('course_materials')
-        .upload(filename, file)
+        .storage.from('course_materials').upload(filename, file)
 
       if (uploadError) throw new Error(uploadError.message)
 
-      // Save file info for later
       setUploadedFilePath(uploadData.path)
       setUploadedFileName(file.name)
 
@@ -131,7 +142,7 @@ export default function CourseManagement() {
       if (!aiResult.success) throw new Error(aiResult.error)
 
       setGeneratedQuestions(aiResult.data)
-      setIsReviewing(true) // Switch to Review Mode immediately
+      setIsReviewing(true)
       
     } catch (error) {
       alert("Error: " + error.message)
@@ -154,10 +165,33 @@ export default function CourseManagement() {
 
       {/* Header */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">{course.course_name}</h1>
-        <div className="flex items-center mt-2 gap-3">
-            <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-sm font-semibold">{course.programs?.name}</span>
-            <span className="px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-sm font-medium">{course.academic_levels?.name}</span>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <h1 className="text-3xl font-bold text-gray-900">{course.course_name}</h1>
+                <div className="flex items-center mt-2 gap-3">
+                    <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-sm font-semibold">{course.programs?.name}</span>
+                    <span className="px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-sm font-medium">{course.academic_levels?.name}</span>
+                </div>
+            </div>
+            
+            <div className="flex gap-3">
+                {/* NEW BUTTON: View Question Bank */}
+                <Link 
+                    href={`/dashboard/educator/course/${courseId}/questions`}
+                    className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 flex items-center gap-2 shadow-sm transition-colors"
+                >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                    Question Bank
+                </Link>
+
+                <Link 
+                    href={`/dashboard/educator/course/${courseId}/students`}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2 transition-colors"
+                >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                    Students
+                </Link>
+            </div>
         </div>
       </div>
 
@@ -165,14 +199,17 @@ export default function CourseManagement() {
         {/* Left Column: Content Area */}
         <div className="lg:col-span-2">
           
-          {/* --- VIEW 1: REVIEW MODE (The Questions) --- */}
+          {/* --- VIEW 1: REVIEW MODE (PRE-PUBLISH) --- */}
           {isReviewing ? (
             <div className="space-y-6">
-              <div className="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm border">
-                <h2 className="text-xl font-bold text-gray-800">Review Questions ({generatedQuestions.length})</h2>
+              <div className="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm border border-yellow-200 bg-yellow-50">
+                <div>
+                    <h2 className="text-xl font-bold text-gray-800">Review New Questions</h2>
+                    <p className="text-sm text-gray-600">These are not saved yet. Review and publish.</p>
+                </div>
                 <div className="space-x-2">
-                    <button onClick={() => setIsReviewing(false)} className="text-gray-500 hover:text-gray-700 px-3 py-1">Cancel</button>
-                    <button onClick={handlePublish} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 font-medium">Publish Course</button>
+                    <button onClick={() => setIsReviewing(false)} className="text-gray-500 hover:text-gray-700 px-3 py-1">Discard</button>
+                    <button onClick={handlePublish} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 font-medium shadow-sm">Add to Bank</button>
                 </div>
               </div>
 
@@ -181,15 +218,15 @@ export default function CourseManagement() {
                   {/* Question Header */}
                   <div className="flex justify-between mb-3">
                     <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-bold uppercase rounded">{q.bloom_level}</span>
-                    <button onClick={() => handleDeleteQuestion(qIndex)} className="text-red-400 hover:text-red-600">
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    <button onClick={() => handleReviewDelete(qIndex)} className="text-red-400 hover:text-red-600">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                   </div>
 
                   {/* Question Text Input */}
                   <textarea
                     value={q.question_text}
-                    onChange={(e) => handleQuestionEdit(qIndex, 'question_text', e.target.value)}
+                    onChange={(e) => handleReviewEdit(qIndex, 'question_text', e.target.value)}
                     className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium text-gray-800 mb-4"
                     rows={2}
                   />
@@ -198,19 +235,17 @@ export default function CourseManagement() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {q.choices.map((choice, cIndex) => (
                       <div key={cIndex} className="flex items-center">
-                        {/* Radio for Correct Answer */}
                         <input
                           type="radio"
                           name={`correct-${qIndex}`}
                           checked={q.correct_answer === choice}
-                          onChange={() => handleQuestionEdit(qIndex, 'correct_answer', choice)}
+                          onChange={() => handleReviewEdit(qIndex, 'correct_answer', choice)}
                           className="mr-3 h-4 w-4 text-blue-600 focus:ring-blue-500 cursor-pointer"
                         />
-                        {/* Text Input for Choice */}
                         <input
                           type="text"
                           value={choice}
-                          onChange={(e) => handleChoiceEdit(qIndex, cIndex, e.target.value)}
+                          onChange={(e) => handleReviewChoiceEdit(qIndex, cIndex, e.target.value)}
                           className={`w-full p-2 border rounded-md text-sm text-gray-800 ${
                             q.correct_answer === choice ? 'border-green-500 bg-green-50 ring-1 ring-green-500' : 'border-gray-300'
                           }`}
@@ -223,7 +258,7 @@ export default function CourseManagement() {
             </div>
           ) : (
             
-            /* --- VIEW 2: UPLOAD MODE (The Dropzone) --- */
+            /* --- VIEW 2: UPLOAD MODE --- */
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 min-h-[400px]">
                 <div className="p-4 border-b border-gray-200"><h2 className="text-lg font-bold text-gray-800">Upload Material</h2></div>
                 <div className="p-8">
@@ -237,7 +272,9 @@ export default function CourseManagement() {
                             <input type="file" accept=".pdf" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
                                 onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])} 
                             />
+                            <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
                             <p className="mt-2 text-gray-600"><span className="font-medium text-blue-600">Click to Upload PDF</span> (Max 10MB)</p>
+                            <p className="text-sm text-gray-400 mt-1">Generates questions automatically</p>
                         </div>
                     )}
                 </div>
@@ -245,12 +282,30 @@ export default function CourseManagement() {
           )}
         </div>
 
-        {/* Right Column */}
+        {/* Right Column: Quick Stats */}
         <div className="space-y-6">
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-bold text-gray-800 mb-4">Course Stats</h2>
+            <h2 className="text-lg font-bold text-gray-800 mb-4">Class Overview</h2>
             <div className="space-y-4">
-              <div className="flex justify-between"><span className="text-gray-600">Generated</span><span className="font-bold">{generatedQuestions.length}</span></div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Enrolled Students</span>
+                <span className="font-bold text-xl">{studentCount}</span>
+              </div>
+              <div className="pt-4 border-t border-gray-100 space-y-2">
+                <Link 
+                    href={`/dashboard/educator/course/${courseId}/students`}
+                    className="block w-full text-center bg-gray-50 hover:bg-gray-100 text-gray-700 py-2 rounded-md text-sm font-medium transition"
+                >
+                    View Class Roster
+                </Link>
+                {/* Secondary link to question bank here too */}
+                <Link 
+                    href={`/dashboard/educator/course/${courseId}/questions`}
+                    className="block w-full text-center bg-blue-50 hover:bg-blue-100 text-blue-700 py-2 rounded-md text-sm font-medium transition"
+                >
+                    Manage Question Bank
+                </Link>
+              </div>
             </div>
           </div>
         </div>
