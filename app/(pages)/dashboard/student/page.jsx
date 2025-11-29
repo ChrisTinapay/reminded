@@ -100,7 +100,7 @@ export default function StudentDashboard() {
               {/* Card Header (Color Strip) */}
               <div className="h-2 bg-blue-600 w-full"></div>
 
-              <div className="p-6 flex-grow">
+              <div className="p-6">
                 {/* Program Tag */}
                 <div className="flex items-center justify-between mb-2">
                   <span className="inline-block px-2 py-1 text-xs font-semibold text-blue-600 bg-blue-100 rounded-full">
