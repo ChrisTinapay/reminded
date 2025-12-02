@@ -1,4 +1,4 @@
-import MaterialHeader from '../../_components/materialHeader';
+import MaterialHeader from '../../_components/MaterialHeader';
 import MaterialContent from './_components/materialContent';
 
 const MaterialViewer = () => {

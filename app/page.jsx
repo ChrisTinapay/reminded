@@ -1,58 +1,62 @@
 // app/page.js
-'use client'
+'use client';
 
-import { useEffect } from 'react'
-import { supabase } from './_lib/supabaseClient'
-import { useRouter } from 'next/navigation'
-import Image from 'next/image' // Import Image component for your logo
+import { useEffect } from 'react';
+import { supabase } from './_lib/supabaseClient';
+import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import ThemeToggle from './_components/ThemeToggle';
 
 export default function Welcome() {
-  const router = useRouter()
+  const router = useRouter();
 
   // --- All your useEffect and handleGoogleLogin logic stays exactly the same ---
   useEffect(() => {
     const checkUserStatus = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
       if (user) {
         const { data: profile, error } = await supabase
           .from('profiles')
           .select('role')
           .eq('id', user.id)
-          .single()
+          .single();
 
         if (profile && profile.role) {
           if (profile.role === 'student') {
-            router.push('/dashboard/student')
+            router.push('/dashboard/student');
           } else if (profile.role === 'educator') {
-            router.push('/dashboard/educator')
+            router.push('/dashboard/educator');
           }
         } else {
-          router.push('/role-selection')
+          router.push('/role-selection');
         }
       }
-    }
+    };
 
-    checkUserStatus()
-  }, [router])
+    checkUserStatus();
+  }, [router]);
 
   const handleGoogleLogin = async () => {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-    })
+    });
     if (error) {
-      console.error('Error logging in with Google:', error.message)
+      console.error('Error logging in with Google:', error.message);
     }
-  }
+  };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-background p-6 text-center">
+    <div className="brand-background flex flex-col items-center justify-center min-h-screen p-6 text-center">
+      <ThemeToggle />
       <div className="mb-12 md:mb-16">
         <Image
-          src="/RemindED_Logo.png"
+          src="/Logo.png"
           alt="RemindED Logo"
-          width={200} 
-          height={200} 
+          width={200}
+          height={200}
           className="w-[150px] h-auto md:w-[200px]"
           priority
         />
@@ -60,14 +64,16 @@ export default function Welcome() {
 
       <button
         onClick={handleGoogleLogin}
-  
-        className="flex items-center justify-center w-full max-w-sm px-6 py-3 font-medium text-white bg-indigo-600 rounded-lg shadow-md transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        className="flex items-center justify-center w-full max-w-sm px-6 py-3 font-medium font text-gray-100 brand-cta rounded-lg shadow-md transition-colors hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
       >
         Continue with Google
       </button>
-      <h1 className="mt-12 md:mt-16 text-2xl md:text-3xl font-bold text-foreground">
-        Welcome to <span className="text-indigo-600">RemindED.</span>
+      <h1 className="mt-12 md:mt-16 text-2xl md:text-3xl font-bold brand-primary">
+        Welcome to{' '}
+        <span className="bg-linear-to-r from-brand-l via-brand-v to-brand-r bg-clip-text text-transparent">
+          RemindED.
+        </span>
       </h1>
     </div>
-  )
+  );
 }

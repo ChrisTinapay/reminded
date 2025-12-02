@@ -1,51 +1,62 @@
 @import 'tailwindcss';
 
-@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
 :root {
   /* light mode colors */
-  --color-neutral: #f6f7f7;
-  --color-primary: #1f2937;
-  --color-secondary: #4b5563;
-  --btn-cta: #4f46e5;
+  --brand-cta-lavender: #818cf8;
+  --brand-cta-teal: #2dd4bf;
 
   /* brand gradient from right to left */
   --brand-gradient-r: #1f2937;
   --brand-gradient-l: #58759d;
 
   /* secondary brand from right via left */
-  --brand-secondary-gradient-r: #2c1d78;
+  --brand-secondary-gradient-r: #499bac;
   --brand-secondary-gradient-v: #9a87c6;
-  --brand-secondary-gradient-l: #499bac;
+  --brand-secondary-gradient-l: #2c1d78;
+}
 
-  --btn-primary-lavender: #818cf8;
-  --btn-primary-teal: #2dd4bf;
-  --background: #ffffff;
-  --foreground: #1f2937;
-
+[data-theme='dark'] {
   /* Dark mode colors */
-  --dark-color-neutral: #111827;
-  --dark-color-neutral2: #1f2937;
-  --dark-color-primary: #e5e7eb;
-  --dark-color-secondary: #9ca3af;
-  --dark-btn-cta: #6366f1;
-
-  /* dark brand gradient */
-  --dark-brand-gradient-r: #374151;
-  --dark-brand-gradient-l: #6b7280;
+  --brand-cta-lavender: #a5b4fc;
+  --brand-cta-teal: #5eead4;
 
   /* dark secondary brand gradient */
-  --dark-brand-secondary-gradient-r: #4c3a8f;
-  --dark-brand-secondary-gradient-v: #b39ddb;
-  --dark-brand-secondary-gradient-l: #5fb3c4;
-
-  --dark-btn-primary-lavender: #a5b4fc;
-  --dark-btn-primary-teal: #5eead4;
-  --dark-foreground: #ededed;
+  --brand-secondary-gradient-l: #f9fafb;
+  --brand-secondary-gradient-v: #9a87c6;
+  --brand-secondary-gradient-r: #499bac;
 }
 
 @theme inline {
   /* fonts */
   --font-inter: Inter, 'sans-serif';
   --font-poppins: Poppins, 'sans-serif';
+
+  /* colors */
+
+  /* CTA */
+
+  /* gradients */
+  --color-brand-l: var(--brand-secondary-gradient-l);
+  --color-brand-v: var(--brand-secondary-gradient-v);
+  --color-brand-r: var(--brand-secondary-gradient-r);
+}
+
+@layer utilities {
+  .brand-background {
+    @apply bg-neutral-50 dark:bg-neutral-900 transition-colors duration-400;
+  }
+
+  .brand-primary {
+    @apply dark:text-gray-100 text-gray-800 transition-colors duration-400;
+  }
+
+  .brand-secondary {
+    @apply dark:text-gray-100/75 text-gray-800/75 transition-colors duration-400;
+  }
+
+  .brand-cta {
+    @apply dark:bg-indigo-500 bg-indigo-600 transition-colors duration-400;
+  }
 }

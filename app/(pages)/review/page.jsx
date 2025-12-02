@@ -1,5 +1,5 @@
 import CTA from '@/app/_components/CTA';
-import ReviewHeader from './_components/reviewHeader';
+import ReviewHeader from './_components/ReviewHeader';
 import Question from './_components/Question';
 
 const Review = () => {

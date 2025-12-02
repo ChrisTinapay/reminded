@@ -113,12 +113,16 @@ export default function CreateCourse() {
   };
 
   if (initialLoading)
-    return <div className="p-8 text-center">Loading options...</div>;
+    return (
+      <div className="p-8 text-center font-inter font-medium brand-secondary">
+        Loading options...
+      </div>
+    );
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-50 py-12">
-      <div className="w-full max-w-lg p-8 bg-white rounded-lg shadow-md">
-        <h1 className="text-3xl font-bold text-center text-gray-900 mb-8">
+    <div className="flex justify-center items-center min-h-screen py-12">
+      <div className="w-full max-w-lg p-8 rounded-lg shadow-md">
+        <h1 className="text-2xl font-bold font-poppins text-center brand-primary mb-8">
           Create Your Course
         </h1>
 
@@ -127,7 +131,7 @@ export default function CreateCourse() {
           <div>
             <label
               htmlFor="courseName"
-              className="block text-sm font-medium text-gray-700"
+              className="block text-sm font-semi-bold font-inter brand-secondary"
             >
               Course Name
             </label>
@@ -138,7 +142,7 @@ export default function CreateCourse() {
               placeholder="e.g., Graphic Design"
               value={courseName}
               onChange={(e) => setCourseName(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+              className="mt-1 block w-full font-inter font-medium leading-6 rounded-md border bg-neutral-100 border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
             />
           </div>
 
@@ -146,7 +150,7 @@ export default function CreateCourse() {
           <div>
             <label
               htmlFor="academicLevel"
-              className="block text-sm font-medium text-gray-700"
+              className="block text-sm font-semi-bold font-inter brand-secondary"
             >
               Academic Level
             </label>
@@ -156,7 +160,7 @@ export default function CreateCourse() {
                 required
                 value={academicLevelId}
                 onChange={(e) => setAcademicLevelId(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                className="mt-1 block w-full font-inter font-medium leading-6 rounded-md border border-gray-300 px-3 py-2 bg-neutral-100 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
               >
                 <option value="">Select a Level...</option>
                 {levelsList.map((level) => (
@@ -169,7 +173,7 @@ export default function CreateCourse() {
               <button
                 type="button"
                 onClick={() => handleCreateNew('Academic Level')}
-                className="mt-1 px-3 py-2 bg-gray-100 text-gray-600 rounded-md hover:bg-gray-200 text-sm"
+                className="mt-1 px-3 py-2 font-inter font-medium bg-neutral-100 text-gray-600 rounded-md hover:bg-gray-200 text-sm"
               >
                 + New
               </button>
@@ -180,7 +184,7 @@ export default function CreateCourse() {
           <div>
             <label
               htmlFor="program"
-              className="block text-sm font-medium text-gray-700"
+              className="block text-sm font-semi-bold font-inter brand-secondary"
             >
               Program
             </label>
@@ -190,7 +194,7 @@ export default function CreateCourse() {
                 required
                 value={programId}
                 onChange={(e) => setProgramId(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                className="mt-1 block w-full font-inter font-medium leading-6 rounded-md border border-gray-300 px-3 py-2 bg-white shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
               >
                 <option value="">Select a Program...</option>
                 {programsList.map((program) => (
@@ -203,7 +207,7 @@ export default function CreateCourse() {
               <button
                 type="button"
                 onClick={() => handleCreateNew('Program')}
-                className="mt-1 px-3 py-2 bg-gray-100 text-gray-600 rounded-md hover:bg-gray-200 text-sm"
+                className="mt-1 px-3 py-2 font-inter font-medium bg-gray-100 text-gray-600 rounded-md hover:bg-gray-200 text-sm"
               >
                 + New
               </button>
@@ -214,7 +218,7 @@ export default function CreateCourse() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-md bg-blue-600 px-4 py-3 font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-400"
+            className="w-full rounded-md brand-cta px-4 py-3 text-base font-inter font-semibold leading-6 text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:bg-gray-400"
           >
             {loading ? 'Creating...' : 'Create Course'}
           </button>
