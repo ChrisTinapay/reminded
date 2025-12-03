@@ -5,7 +5,7 @@ import NavigationBar from './_components/NavigationBar';
 // Back to a simple, non-async function
 export default function DashboardLayout({ children }) {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen brand-background">
       <NavigationBar />
       <main className="md:flex-1 md:ml-64">
         <Header />

@@ -93,7 +93,7 @@ export default function NavigationBar() {
   const NavLink = ({ href, icon, text }) => (
     <Link
       href={href}
-      className="flex flex-col items-center justify-center py-2 px-4 rounded-md text-gray-800/75 hover:bg-gray-100 md:flex-row md:justify-start md:space-x-3"
+      className="flex flex-col items-center justify-center py-2 px-4 rounded-md brand-secondary hover:bg-gray-100 dark:hover:bg-gray-800 md:flex-row md:justify-start md:space-x-3"
     >
       {icon}
       <span className="text-xs md:text-base font-inter leading-6">{text}</span>
@@ -110,13 +110,17 @@ export default function NavigationBar() {
 
   return (
     <>
-      <nav className="fixed bottom-0 left-0 z-40 flex h-16 w-full flex-row items-center justify-around border-t border-gray-200 bg-white md:fixed md:top-0 md:left-0 md:h-screen md:w-64 md:flex-col md:items-stretch md:justify-start md:space-y-4 md:border-t-0 md:border-r md:px-4 md:py-6">
+      <nav className="fixed bottom-0 left-0 z-40 flex h-16 w-full flex-row items-center justify-around border-t border-gray-200 brand-background md:fixed md:top-0 md:left-0 md:h-screen md:w-64 md:flex-col md:items-stretch md:justify-start md:space-y-4 md:border-t-0 md:border-r md:px-4 md:py-6">
         {' '}
+        <div className="hidden md:flex  md:flex-col justify-center items-center">
+          <img className="h-26 w-26 my-4" src="/logo.png" alt="" />
+        </div>
         {/* 3. This section is now dynamic */}
         <div className="flex w-full flex-row justify-around md:flex-col md:space-y-2">
           {loading ? (
             // Show placeholders while loading the user's role
             <>
+              <LoadingSkeleton />
               <LoadingSkeleton />
             </>
           ) : (
@@ -140,7 +144,7 @@ export default function NavigationBar() {
         {/* Logout Button (unchanged) */}
         <button
           onClick={handleSignOut}
-          className="flex flex-col items-center justify-center py-2 px-4 text-red-600/75 rounded-md hover:bg-red-50 md:flex-row md:justify-start md:space-x-3"
+          className="flex flex-col items-center justify-center py-2 px-4 text-red-600/75 dark:text-red-700 rounded-md hover:bg-red-50 dark:hover:bg-gray-800 md:flex-row md:justify-start md:space-x-3"
         >
           <LogoutIcon />
           <span className="text-xs md:text-base font-inter leading-6">

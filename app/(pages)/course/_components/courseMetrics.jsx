@@ -1,4 +1,4 @@
-import ProgressBar from './progressBar';
+import ProgressBar from './ProgressBar';
 
 const CourseMetrics = () => {
   return (

@@ -1,5 +1,6 @@
 import { Inter, Poppins } from 'next/font/google';
 import './globals.css';
+import ThemeScript from './_components/ThemeScript';
 
 const inter = Inter({
   variable: '--font-inter',
@@ -20,9 +21,10 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html className="" lang="en">
+    <html lang="en" suppressHydrationWarning>
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       <body className={`${inter.variable} ${poppins.variable} antialiased`}>
+        <ThemeScript />
         {children}
       </body>
     </html>

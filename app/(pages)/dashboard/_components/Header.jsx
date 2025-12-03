@@ -1,9 +1,8 @@
-// components/Header.jsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/app/_lib/supabaseClient';
-import Link from 'next/link';
+import ThemeToggle from '@/app/_components/ThemeToggle';
 
 export default function Header() {
   const [fullName, setFullName] = useState('');
@@ -32,18 +31,19 @@ export default function Header() {
 
   return (
     <>
-      <header className="hidden md:flex items-center justify-between p-6 self-stretch bg-white shadow-md">
+      <header className="hidden md:flex items-center justify-between p-6 self-stretch brand-background border-b border-gray-200">
         {/* Welcome Message */}
-        <div className="hidden md:block">
+        <div>
           {fullName && (
-            <h1 className="text-2xl font-semibold font-poppins text-gray-800 leading-8">
+            <h1 className="text-2xl font-semibold font-poppins brand-primary leading-8">
               Welcome,{' '}
-              <span className="bg-linear-to-r from-pink-500 via-purple-500 to-indigo-500 bg-clip-text text-transparent">
+              <span className="bg-linear-to-r from-brand-l via-brand-v to-brand-r bg-clip-text text-transparent">
                 {fullName}!
               </span>
             </h1>
           )}
         </div>
+        <ThemeToggle />
       </header>
     </>
   );

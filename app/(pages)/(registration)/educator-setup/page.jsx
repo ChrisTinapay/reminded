@@ -62,35 +62,35 @@ export default function EducatorSetup() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center font-inter justify-center min-h-screen brand-background brand-secondary">
         Loading profile...
       </div>
     );
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
-      <div className="w-full max-w-lg p-8 space-y-6 bg-white rounded-lg shadow-md">
-        <h2 className="text-2xl font-bold text-center text-gray-900">
+    <div className="flex items-center justify-center min-h-screen brand-background">
+      <div className="w-full max-w-lg p-8 space-y-6 brand-background rounded-lg shadow-md inset-shadow-sm shadow-indigo-600 inset-shadow-indigo-600">
+        <h2 className="text-2xl font-bold font-poppins leading-8 text-center brand-primary">
           Complete Your Educator Profile
         </h2>
 
         <form className="space-y-6" onSubmit={handleProfileSave}>
           <div>
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-sm font-semi-bold font-inter brand-secondary leading-6">
               Email
             </label>
             <input
               type="email"
               value={email}
               disabled
-              className="w-full px-3 py-2 mt-1 bg-gray-100 border border-gray-300 rounded-md shadow-sm"
+              className="text-base font-medium font-inter leading-6 w-full px-3 py-2 mt-1 bg-gray-100 border border-gray-300 rounded-md shadow-sm"
             />
           </div>
           <div>
             <label
               htmlFor="fullName"
-              className="block text-sm font-medium text-gray-700"
+              className="block text-sm font-semi-bold font-inter brand-secondary leading-6"
             >
               Full Name
             </label>
@@ -99,14 +99,14 @@ export default function EducatorSetup() {
               type="text"
               value={fullName} // Still pre-populated
               onChange={(e) => setFullName(e.target.value)} // Now it's editable
-              className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" // Removed 'disabled' styles
+              className="text-base font-medium font-inter leading-6 w-full px-3 py-2 mt-1 bg-gray-100 border border-gray-300 rounded-md shadow-sm" // Removed 'disabled' styles
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full px-4 py-2 font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400"
+            className="text-base w-full px-4 py-2 font-inter font-semibold leading-6 text-gray-100 brand-cta rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400"
           >
             {loading ? 'Saving...' : 'Save Profile & Go to Dashboard'}
           </button>
