@@ -62,7 +62,21 @@ export async function generateQuestionsFromPDF(filePath) {
           mimeType: "application/pdf",
         },
       },
-      "Generate 20 multiple-choice questions based on this document. Ensure a mix of Bloom's Taxonomy levels."
+      `Generate 20 multiple-choice questions based on this document.
+
+CRITICAL CONSTRAINTS:
+
+Brevity: The question stem must be under 20 words. The options must be under 5 words.
+
+Speed: The question must be readable and answerable within 10 seconds.
+
+Bloom's Taxonomy: Create a mix of levels, BUT convert higher-order scenarios into concise formats.
+
+Bad: 'John is a manager who notices X, Y, and Z... [long paragraph]... what should he do?'
+
+Good: 'Given condition X and Y, which management style is appropriate?'
+
+Output Format: JSON.`
     ]);
 
     // E. Parse and Return
