@@ -1,4 +1,4 @@
-import MaterialHeader from '../_components/MaterialHeader';
+import MaterialHeader from '../_components/materialHeader';
 import MaterialCard from './_components/materialCard';
 
 const CourseMaterial = () => {

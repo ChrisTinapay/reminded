@@ -1,4 +1,4 @@
-import AnswerCard from './AnswerCard';
+import AnswerCard from './answerCard';
 
 const Question = () => {
   return (

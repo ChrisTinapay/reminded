@@ -1,6 +1,6 @@
-import CourseHeader from './_components/CourseHeader';
-import CourseMetrics from './_components/CourseMetrics';
-import CourseCTAContainer from './_components/CourseCTAContainer';
+import CourseHeader from './_components/courseHeader';
+import CourseMetrics from './_components/courseMetrics';
+import CourseCTAContainer from './_components/courseCTAContainer';
 
 const Course = () => {
   return (
