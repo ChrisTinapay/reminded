@@ -138,17 +138,27 @@ export default function NavigationBar() {
               <NavLink href="/profile" icon={<ProfileIcon />} text="Profile" />
             </>
           )}
+          {/* Logout Button - inside flex container for mobile alignment */}
+          <button
+            onClick={handleSignOut}
+            className="flex flex-col items-center justify-center py-2 px-4 text-red-600/75 dark:text-red-700 rounded-md hover:bg-red-50 dark:hover:bg-gray-800 md:hidden"
+          >
+            <LogoutIcon />
+            <span className="text-xs font-inter leading-6">
+              Sign Out
+            </span>
+          </button>
         </div>
         {/* Spacer for desktop */}
         <div className="hidden md:block md:grow" />
-        {/* Logout Button (unchanged) */}
+        {/* Logout Button for desktop - separate for desktop layout */}
         <button
           onClick={handleSignOut}
-          className="flex flex-col items-center justify-center py-2 px-4 text-red-600/75 dark:text-red-700 rounded-md hover:bg-red-50 dark:hover:bg-gray-800 md:flex-row md:justify-start md:space-x-3"
+          className="hidden md:flex md:flex-row md:items-center md:justify-start md:space-x-3 md:py-2 md:px-4 md:text-red-600/75 dark:md:text-red-700 md:rounded-md md:hover:bg-red-50 dark:md:hover:bg-gray-800"
         >
           <LogoutIcon />
-          <span className="text-xs md:text-base font-inter leading-6">
-            Log Out
+          <span className="text-base font-inter leading-6">
+            Sign Out
           </span>
         </button>
       </nav>
