@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/app/_lib/supabaseClient';
+import { fetchCourseDetails } from '@/app/actions/courses';
 
 export default function StudentList() {
   const params = useParams();
@@ -16,25 +17,21 @@ export default function StudentList() {
 
   useEffect(() => {
     const fetchData = async () => {
-      // 1. Get Course Info (for the title and bridge IDs)
-      const { data: courseData } = await supabase
-        .from('courses')
-        .select('course_name, academic_level_id, program_id')
-        .eq('id', courseId)
-        .single();
+      try {
+        const courseData = await fetchCourseDetails(courseId);
+        setCourse(courseData);
 
-      setCourse(courseData);
+        if (courseData) {
+          // Temporarily fetching all students. (academic_level filtering logic suspended due to Turso schema migration)
+          const { data: studentData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('role', 'student');
 
-      // 2. Get Students based on the "Bridge" (Level + Program)
-      if (courseData) {
-        const { data: studentData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('role', 'student')
-          .eq('academic_level_id', courseData.academic_level_id)
-          .eq('program_id', courseData.program_id);
-
-        if (studentData) setStudents(studentData);
+          if (studentData) setStudents(studentData);
+        }
+      } catch (err) {
+        console.error("Failed to fetch course details for students page:", err);
       }
       setLoading(false);
     };
@@ -57,7 +54,7 @@ export default function StudentList() {
       {/* Breadcrumbs */}
       <div className="mb-6 flex items-center text-sm brand-secondary">
         <Link
-          href={`/dashboard/educator/course/${courseId}`}
+          href={`/dashboard/student/course/${courseId}`}
           className="hover:text-gray-700 dark:hover:text-gray-500 font-inter"
         >
           {course?.course_name || 'Course'}

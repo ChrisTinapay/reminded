@@ -9,12 +9,17 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.995.0",
+    "@aws-sdk/s3-request-presigner": "^3.995.0",
     "@google/generative-ai": "^0.24.1",
+    "@libsql/client": "^0.17.0",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.79.0",
-    "next": "16.0.10",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
+    "axios": "^1.13.5",
+    "googleapis": "^171.4.0",
+    "next": "^16.1.6",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
     "ssr": "^5.7.5"
   },
   "devDependencies": {

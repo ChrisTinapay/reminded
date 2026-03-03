@@ -1,155 +1,200 @@
-// components/NavigationBar.jsx
-// components/NavigationBar.jsx
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/app/_lib/supabaseClient';
-import { useState, useEffect } from 'react'; // Import useState and useEffect
+import { useState, useEffect, useRef, useCallback } from 'react';
 
-// --- Icon Components (these are all unchanged) ---
+// --- Icon Components ---
 const DashboardIcon = () => (
-  <svg
-    className="h-6 w-6"
-    fill="none"
-    viewBox="0 0 24 24"
-    stroke="currentColor"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M3 10h18M3 14h18M3 6h18M3 18h18"
-    />
+  <svg className="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18M3 6h18M3 18h18" />
   </svg>
 );
 const ProfileIcon = () => (
-  <svg
-    className="h-6 w-6"
-    fill="none"
-    viewBox="0 0 24 24"
-    stroke="currentColor"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-    />
+  <svg className="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
   </svg>
 );
 const LogoutIcon = () => (
-  <svg
-    className="h-6 w-6"
-    fill="none"
-    viewBox="0 0 24 24"
-    stroke="currentColor"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-    />
+  <svg className="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
   </svg>
 );
-// --- End of Icons ---
+
+// Nav link component defined outside render
+function NavLink({ href, icon, text, active, collapsed }) {
+  return (
+    <Link
+      href={href}
+      className={`flex items-center gap-3 py-2.5 rounded-lg transition-all duration-200 ${collapsed ? 'justify-center px-2' : 'px-3'
+        } ${active
+          ? 'bg-indigo-50 text-indigo-700 font-semibold'
+          : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+        }`}
+      title={collapsed ? text : undefined}
+    >
+      <span className={active ? 'text-indigo-600' : ''}>{icon}</span>
+      {!collapsed && (
+        <span className="text-sm font-inter leading-6 whitespace-nowrap overflow-hidden">{text}</span>
+      )}
+    </Link>
+  );
+}
+
+const MIN_WIDTH = 72;
+const DEFAULT_WIDTH = 256;
+const MAX_WIDTH = 320;
+const COLLAPSE_THRESHOLD = 140;
 
 export default function NavigationBar() {
   const router = useRouter();
-  // 1. Add state to store the user's role
-  const [userRole, setUserRole] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  // 2. Add useEffect to fetch the role when the component loads
-  useEffect(() => {
-    const fetchUserRole = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single();
-
-        if (profile) {
-          setUserRole(profile.role);
-        }
+  const pathname = usePathname();
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('sidebar-width');
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        if (parsed >= MIN_WIDTH && parsed <= MAX_WIDTH) return parsed;
       }
-      setLoading(false);
+    }
+    return DEFAULT_WIDTH;
+  });
+  const isDragging = useRef(false);
+  const sidebarRef = useRef(null);
+
+  const isCollapsed = sidebarWidth < COLLAPSE_THRESHOLD;
+
+  const handleMouseDown = useCallback((e) => {
+    e.preventDefault();
+    isDragging.current = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, []);
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isDragging.current) return;
+      const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, e.clientX));
+      setSidebarWidth(newWidth);
     };
 
-    fetchUserRole();
+    const handleMouseUp = () => {
+      if (isDragging.current) {
+        isDragging.current = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
   }, []);
+
+  // Save to localStorage and dispatch event whenever width changes
+  useEffect(() => {
+    localStorage.setItem('sidebar-width', String(sidebarWidth));
+    window.dispatchEvent(new CustomEvent('sidebar-resize', { detail: sidebarWidth }));
+  }, [sidebarWidth]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    router.push('/'); // Redirect to welcome page
+    router.push('/');
   };
 
-  // A helper component for nav links
-  const NavLink = ({ href, icon, text }) => (
-    <Link
-      href={href}
-      className="flex flex-col items-center justify-center py-2 px-4 rounded-md brand-secondary hover:bg-gray-100 dark:hover:bg-gray-800 md:flex-row md:justify-start md:space-x-3"
-    >
-      {icon}
-      <span className="text-xs md:text-base font-inter leading-6">{text}</span>
-    </Link>
-  );
-
-  // Helper component for a loading placeholder
-  const LoadingSkeleton = () => (
-    <div className="flex flex-col items-center justify-center p-2 text-gray-400 animate-pulse md:flex-row md:justify-start md:space-x-3">
-      <div className="w-6 h-6 bg-gray-200 rounded-md"></div>
-      <span className="w-16 h-4 mt-1 bg-gray-200 rounded-md md:mt-0"></span>
-    </div>
-  );
+  // Active page check
+  const isDashboardActive = pathname === '/dashboard/student' || pathname === '/dashboard/student/';
+  const isProfileActive = pathname.startsWith('/dashboard/student/profile');
 
   return (
     <>
-      <nav className="fixed bottom-0 left-0 z-40 flex h-16 w-full flex-row items-center justify-around border-t border-gray-200 brand-background md:fixed md:top-0 md:left-0 md:h-screen md:w-64 md:flex-col md:items-stretch md:justify-start md:space-y-4 md:border-t-0 md:border-r md:px-4 md:py-6">
-        {' '}
-        <div className="hidden md:flex  md:flex-col justify-center items-center">
-          <img className="h-26 w-26 my-4" src="/logo.png" alt="" />
+      {/* Desktop Sidebar */}
+      <nav
+        ref={sidebarRef}
+        className="hidden md:flex fixed top-0 left-0 h-screen flex-col items-stretch justify-start border-r border-gray-200 brand-background z-40"
+        style={{ width: `${sidebarWidth}px` }}
+      >
+        {/* Logo */}
+        <div className={`flex items-center py-5 ${isCollapsed ? 'justify-center px-2' : 'justify-center px-4'}`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            className={`transition-all duration-200 ${isCollapsed ? 'h-10 w-10' : 'h-24 w-24'}`}
+            src="/logo.png"
+            alt="RemindED"
+          />
         </div>
-        {/* 3. This section is now dynamic */}
-        <div className="flex w-full flex-row justify-around md:flex-col md:space-y-2">
-          {loading ? (
-            // Show placeholders while loading the user's role
-            <>
-              <LoadingSkeleton />
-              <LoadingSkeleton />
-            </>
-          ) : (
-            // Once loaded, show the correct links
-            <>
-              <NavLink
-                href={
-                  userRole === 'student'
-                    ? '/dashboard/student'
-                    : '/dashboard/educator'
-                }
-                icon={<DashboardIcon />}
-                text="Dashboard"
-              />
-              <NavLink href="/profile" icon={<ProfileIcon />} text="Profile" />
-            </>
-          )}
+
+        {/* Nav Links */}
+        <div className="flex flex-col space-y-1 px-3">
+          <NavLink
+            href="/dashboard/student"
+            icon={<DashboardIcon />}
+            text="Dashboard"
+            active={isDashboardActive}
+            collapsed={isCollapsed}
+          />
+          <NavLink
+            href="/dashboard/student/profile"
+            icon={<ProfileIcon />}
+            text="Profile"
+            active={isProfileActive}
+            collapsed={isCollapsed}
+          />
         </div>
-        {/* Spacer for desktop */}
-        <div className="hidden md:block md:grow" />
-        {/* Logout Button (unchanged) */}
+
+        {/* Spacer */}
+        <div className="grow" />
+
+        {/* Logout */}
+        <div className="px-3 pb-6">
+          <button
+            onClick={handleSignOut}
+            className={`flex items-center gap-3 py-2.5 rounded-lg text-red-500 hover:bg-red-50 hover:text-red-600 transition-all duration-200 w-full ${isCollapsed ? 'justify-center px-2' : 'px-3'
+              }`}
+            title={isCollapsed ? 'Log Out' : undefined}
+          >
+            <LogoutIcon />
+            {!isCollapsed && (
+              <span className="text-sm font-inter leading-6 whitespace-nowrap">Log Out</span>
+            )}
+          </button>
+        </div>
+
+        {/* Drag Handle */}
+        <div
+          onMouseDown={handleMouseDown}
+          className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-indigo-400/50 active:bg-indigo-500/50 transition-colors z-50"
+        />
+      </nav>
+
+      {/* Mobile Bottom Bar */}
+      <nav className="md:hidden fixed bottom-0 left-0 z-40 flex h-16 w-full flex-row items-center justify-around border-t border-gray-200 brand-background">
+        <Link
+          href="/dashboard/student"
+          className={`flex flex-col items-center justify-center py-2 px-4 rounded-md ${isDashboardActive ? 'text-indigo-600' : 'text-gray-600'
+            }`}
+        >
+          <DashboardIcon />
+          <span className="text-xs font-inter">Dashboard</span>
+        </Link>
+        <Link
+          href="/dashboard/student/profile"
+          className={`flex flex-col items-center justify-center py-2 px-4 rounded-md ${isProfileActive ? 'text-indigo-600' : 'text-gray-600'
+            }`}
+        >
+          <ProfileIcon />
+          <span className="text-xs font-inter">Profile</span>
+        </Link>
         <button
           onClick={handleSignOut}
-          className="flex flex-col items-center justify-center py-2 px-4 text-red-600/75 dark:text-red-700 rounded-md hover:bg-red-50 dark:hover:bg-gray-800 md:flex-row md:justify-start md:space-x-3"
+          className="flex flex-col items-center justify-center py-2 px-4 text-red-500 rounded-md"
         >
           <LogoutIcon />
-          <span className="text-xs md:text-base font-inter leading-6">
-            Log Out
-          </span>
+          <span className="text-xs font-inter">Log Out</span>
         </button>
       </nav>
     </>

@@ -1,102 +1,438 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/app/_lib/supabaseClient'
+import { uploadAndGenerateFromFormData } from '@/app/actions/generateQuestions'
+import { saveQuestion } from '@/app/actions/questions'
+import { fetchCourseDetails, fetchStudentStats, saveLearningMaterial, fetchLearningMaterials, deleteLearningMaterial, updateCourseName } from '@/app/actions/courses'
 
 export default function CourseLobby() {
   const params = useParams()
+  const router = useRouter()
   const courseId = params.courseId
+
+  // State
   const [course, setCourse] = useState(null)
-  const [stats, setStats] = useState({ total: 0, mastered: 0, due: 0 })
   const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState({ total: 0, mastered: 0, due: 0 })
+  const [materials, setMaterials] = useState([])
+
+  // Course Name Editing
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [editedName, setEditedName] = useState('')
+  const [savingName, setSavingName] = useState(false)
+
+  // Upload & Generate State
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [generatedQuestions, setGeneratedQuestions] = useState([])
+  const [isReviewing, setIsReviewing] = useState(false)
+  const [uploadedFilePath, setUploadedFilePath] = useState(null)
+  const [uploadedFileName, setUploadedFileName] = useState(null)
+  const [topicName, setTopicName] = useState('')
 
   useEffect(() => {
     const fetchData = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      
-      // 1. Course Details
-      const { data: courseData } = await supabase
-        .from('courses')
-        .select('*, profiles:educator_id(full_name)')
-        .eq('id', courseId)
-        .single()
+
+      let courseData = null;
+      try {
+        courseData = await fetchCourseDetails(courseId);
+      } catch (err) {
+        console.error("Failed to fetch course details:", err);
+      }
+
+      if (!courseData) {
+        alert('Course not found!')
+        router.push('/dashboard/student')
+        return
+      }
+
       setCourse(courseData)
+      setEditedName(courseData.course_name)
 
-      // 2. Calculate Stats
       if (user) {
-        // Count total questions available in the bank
-        const { count: totalQ } = await supabase
-            .from('questions')
-            .select('*', { count: 'exact', head: true })
-            .eq('course_id', courseId)
-
-        // Fetch user progress
-        const { data: progress } = await supabase
-            .from('student_progress')
-            .select('*')
-            .eq('user_id', user.id)
-            .eq('course_id', courseId)
-
-        const now = new Date()
-        const dueCount = progress?.filter(p => new Date(p.next_review_date) <= now).length || 0
-        // We define "Mastered" as interval > 21 days
-        const masteredCount = progress?.filter(p => p.interval > 21).length || 0
-
-        setStats({ 
-            total: totalQ || 0, 
-            mastered: masteredCount, 
-            due: dueCount 
-        })
+        try {
+          const [courseStats, courseMaterials] = await Promise.all([
+            fetchStudentStats(courseId),
+            fetchLearningMaterials(courseId)
+          ]);
+          setStats(courseStats);
+          setMaterials(courseMaterials);
+        } catch (err) {
+          console.error("Failed to fetch course data:", err);
+        }
       }
       setLoading(false)
     }
-    fetchData()
-  }, [courseId])
+    if (courseId) fetchData()
+  }, [courseId, router])
 
-  if (loading) return <div className="p-12 text-center text-gray-500">Loading course data...</div>
-  if (!course) return <div className="p-12 text-center">Course not found.</div>
+  // --- Course Name Edit ---
+  const handleSaveName = async () => {
+    if (!editedName.trim() || editedName.trim() === course.course_name) {
+      setIsEditingName(false)
+      setEditedName(course.course_name)
+      return
+    }
+    setSavingName(true)
+    try {
+      await updateCourseName(courseId, editedName.trim())
+      setCourse({ ...course, course_name: editedName.trim() })
+      setIsEditingName(false)
+    } catch (err) {
+      alert('Error updating name: ' + err.message)
+    } finally {
+      setSavingName(false)
+    }
+  }
+
+  const handleNameKeyDown = (e) => {
+    if (e.key === 'Enter') handleSaveName()
+    if (e.key === 'Escape') { setIsEditingName(false); setEditedName(course.course_name) }
+  }
+
+  // --- Question Review Editing ---
+  const handleReviewEdit = (index, field, value) => {
+    const updated = [...generatedQuestions];
+    updated[index][field] = value;
+    setGeneratedQuestions(updated);
+  };
+
+  const handleReviewChoiceEdit = (qIndex, cIndex, value) => {
+    const updated = [...generatedQuestions];
+    updated[qIndex].choices[cIndex] = value;
+    setGeneratedQuestions(updated);
+  };
+
+  const handleReviewDelete = (index) => {
+    if (confirm('Remove this question from the draft?')) {
+      const updated = generatedQuestions.filter((_, i) => i !== index);
+      setGeneratedQuestions(updated);
+    }
+  };
+
+  const handlePublish = async () => {
+    if (!topicName.trim()) {
+      alert('Please enter a topic name before publishing.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const materialResult = await saveLearningMaterial({
+        course_id: courseId,
+        file_name: uploadedFileName,
+        file_path: uploadedFilePath,
+        topic_name: topicName.trim(),
+      });
+
+      if (!materialResult.success) throw new Error('Failed to save material');
+
+      for (const q of generatedQuestions) {
+        await saveQuestion({
+          course_id: courseId,
+          material_id: materialResult.id,
+          question_text: q.question_text,
+          choices: q.choices,
+          correct_answer: q.correct_answer,
+          bloom_level: q.bloom_level,
+        });
+      }
+
+      alert('Topic created with ' + generatedQuestions.length + ' questions!');
+      setGeneratedQuestions([]);
+      setIsReviewing(false);
+      setUploadedFileName(null);
+      setUploadedFilePath(null);
+      setTopicName('');
+
+      const [newStats, newMaterials] = await Promise.all([
+        fetchStudentStats(courseId),
+        fetchLearningMaterials(courseId)
+      ]);
+      setStats(newStats);
+      setMaterials(newMaterials);
+    } catch (error) {
+      console.error(error);
+      alert('Publish Error: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- File Upload ---
+  const handleFileUpload = async (file) => {
+    setIsGenerating(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const aiResult = await uploadAndGenerateFromFormData(formData);
+      if (!aiResult.success) throw new Error(aiResult.error);
+
+      setUploadedFilePath(aiResult.driveWebViewLink);
+      setUploadedFileName(file.name);
+      setTopicName(file.name.replace(/\.pdf$/i, ''));
+      setGeneratedQuestions(aiResult.data);
+      setIsReviewing(true);
+    } catch (error) {
+      alert('Error: ' + error.message);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  if (loading) return <div className="p-12 text-center text-gray-500 font-inter">Loading course data...</div>
+  if (!course) return <div className="p-12 text-center font-inter">Course not found.</div>
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-8">
-      {/* Header Card */}
-      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 text-center relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-2 bg-indigo-600"></div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">{course.course_name}</h1>
-        <p className="text-gray-500">Instructor: {course.profiles?.full_name}</p>
-        
-        <div className="mt-8 flex justify-center">
-            <Link 
-                href={`/dashboard/student/course/${courseId}/review`}
-                className="group relative inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white text-lg font-bold py-4 px-12 rounded-full shadow-lg transition-all transform hover:scale-105"
-            >
-                <span>Start Study Session</span>
-                {stats.due > 0 && (
-                   <span className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-xs text-white ring-2 ring-white">
-                     {stats.due}
-                   </span>
-                )}
-            </Link>
+    <div className="p-6 max-w-6xl mx-auto space-y-8">
+
+      {/* Breadcrumb */}
+      <div className="flex items-center font-inter text-sm text-gray-500">
+        <Link href="/dashboard/student" className="hover:text-blue-600">Dashboard</Link>
+        <span className="mx-2">/</span>
+        <span className="text-gray-900 font-medium">{course.course_name}</span>
+      </div>
+
+      {/* Hero Header with Editable Name */}
+      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-600 to-violet-500"></div>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div>
+            {isEditingName ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={editedName}
+                  onChange={(e) => setEditedName(e.target.value)}
+                  onKeyDown={handleNameKeyDown}
+                  autoFocus
+                  className="text-3xl font-bold text-gray-900 border-b-2 border-indigo-500 bg-transparent outline-none pb-1 pr-2"
+                />
+                <button
+                  onClick={handleSaveName}
+                  disabled={savingName}
+                  className="p-1.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
+                  title="Save"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => { setIsEditingName(false); setEditedName(course.course_name); }}
+                  className="p-1.5 bg-gray-100 text-gray-500 rounded-lg hover:bg-gray-200 transition-colors"
+                  title="Cancel"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <h1 className="text-3xl font-bold text-gray-900">{course.course_name}</h1>
+                <button
+                  onClick={() => setIsEditingName(true)}
+                  className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                  title="Edit course name"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </button>
+              </div>
+            )}
+            <p className="text-gray-500 text-sm mt-1">Your personal study space</p>
+          </div>
+          <Link
+            href={`/dashboard/student/course/${courseId}/review?topic=${encodeURIComponent(course.course_name + ' — All Topics')}`}
+            className="group relative inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-all transform hover:scale-105"
+          >
+            <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>Study All Topics</span>
+            {stats.due > 0 && (
+              <span className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-xs text-white ring-2 ring-white">
+                {stats.due}
+              </span>
+            )}
+          </Link>
         </div>
       </div>
 
       {/* Progress Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-blue-50 p-6 rounded-xl border border-blue-100 flex flex-col items-center">
-            <h3 className="text-blue-800 font-semibold mb-1 text-sm uppercase tracking-wide">Total Questions</h3>
-            <p className="text-4xl font-black text-blue-900">{stats.total}</p>
+          <h3 className="text-blue-800 font-semibold mb-1 text-sm uppercase tracking-wide">Total Questions</h3>
+          <p className="text-4xl font-black text-blue-900">{stats.total}</p>
         </div>
         <div className="bg-green-50 p-6 rounded-xl border border-green-100 flex flex-col items-center">
-            <h3 className="text-green-800 font-semibold mb-1 text-sm uppercase tracking-wide">Mastered</h3>
-            <p className="text-4xl font-black text-green-900">{stats.mastered}</p>
-            <p className="text-xs text-green-700 mt-2">Long-term Memory</p>
+          <h3 className="text-green-800 font-semibold mb-1 text-sm uppercase tracking-wide">Mastered</h3>
+          <p className="text-4xl font-black text-green-900">{stats.mastered}</p>
+          <p className="text-xs text-green-700 mt-2">Long-term Memory</p>
         </div>
         <div className="bg-orange-50 p-6 rounded-xl border border-orange-100 flex flex-col items-center">
-            <h3 className="text-orange-800 font-semibold mb-1 text-sm uppercase tracking-wide">Due for Review</h3>
-            <p className="text-4xl font-black text-orange-900">{stats.due}</p>
-            <p className="text-xs text-orange-700 mt-2">Needs Attention</p>
+          <h3 className="text-orange-800 font-semibold mb-1 text-sm uppercase tracking-wide">Due for Review</h3>
+          <p className="text-4xl font-black text-orange-900">{stats.due}</p>
+          <p className="text-xs text-orange-700 mt-2">Needs Attention</p>
         </div>
+      </div>
+
+      {/* Topics Section */}
+      <div>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold text-gray-900">Topics</h2>
+          <span className="text-sm text-gray-500 font-inter">{materials.length} topic{materials.length !== 1 ? 's' : ''}</span>
+        </div>
+
+        {materials.length > 0 ? (
+          <div className="space-y-5 mb-8">
+            {materials.map((mat) => (
+              <div key={`topic-${mat.id}`} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all">
+                <div className="h-1.5 bg-gradient-to-r from-indigo-500 to-violet-400"></div>
+                <div className="p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-xl font-bold text-gray-900">{mat.topic_name}</h3>
+                      <div className="flex items-center gap-3 mt-1 text-sm text-gray-400">
+                        <span className="flex items-center gap-1">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                          {mat.question_count} questions
+                        </span>
+                        <span>•</span>
+                        <span>{new Date(mat.created_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Two Buttons: Start Study Session + Topic Management */}
+                  <div className="flex flex-wrap gap-3">
+                    <Link
+                      href={`/dashboard/student/course/${courseId}/review?materialId=${mat.id}&topic=${encodeURIComponent(mat.topic_name)}`}
+                      className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-5 rounded-full shadow-md transition-all transform hover:scale-[1.03]"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Start Study Session
+                    </Link>
+
+                    <Link
+                      href={`/dashboard/student/course/${courseId}/topic/${mat.id}`}
+                      className="inline-flex items-center gap-2 py-2.5 px-4 text-sm font-medium text-gray-700 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      Topic Management
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="py-8 text-center bg-gray-50 rounded-lg border border-gray-200 border-dashed mb-8">
+            <p className="text-gray-500">No topics yet. Upload a PDF below to create your first topic!</p>
+          </div>
+        )}
+      </div>
+
+      {/* Upload / Create New Topic Section */}
+      <div>
+        {isReviewing ? (
+          <div className="space-y-6">
+            <div className="p-5 rounded-xl shadow-sm border border-yellow-200 bg-yellow-50">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+                <div>
+                  <h2 className="text-xl font-bold font-poppins text-gray-800">Create New Topic</h2>
+                  <p className="text-sm font-inter text-gray-800/75">Name your topic and review the generated questions before saving.</p>
+                </div>
+                <div className="space-x-2 flex">
+                  <button onClick={() => { setIsReviewing(false); setTopicName(''); }} className="text-gray-700 hover:text-gray-900 px-3 py-1 font-medium">Discard</button>
+                  <button onClick={handlePublish} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 font-medium shadow-sm">Save Topic &amp; Questions</button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Topic Name</label>
+                <input
+                  type="text"
+                  value={topicName}
+                  onChange={(e) => setTopicName(e.target.value)}
+                  placeholder="e.g. Chapter 1: Introduction to Biology"
+                  className="w-full p-3 border border-yellow-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-medium text-gray-800"
+                />
+              </div>
+            </div>
+
+            {generatedQuestions.map((q, qIndex) => (
+              <div key={`new-q-${qIndex}`} className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                <div className="flex justify-between mb-3">
+                  <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-bold uppercase rounded">{q.bloom_level}</span>
+                  <button onClick={() => handleReviewDelete(qIndex)} className="text-red-400 hover:text-red-600">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <textarea
+                  value={q.question_text}
+                  onChange={(e) => handleReviewEdit(qIndex, 'question_text', e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 font-medium text-gray-800 mb-4"
+                  rows={2}
+                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {q.choices.map((choice, cIndex) => (
+                    <div key={`choice-${qIndex}-${cIndex}`} className="flex items-center">
+                      <input
+                        type="radio"
+                        name={`correct-${qIndex}`}
+                        checked={q.correct_answer === choice}
+                        onChange={() => handleReviewEdit(qIndex, 'correct_answer', choice)}
+                        className="mr-3 h-4 w-4 text-indigo-600 cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={choice}
+                        onChange={(e) => handleReviewChoiceEdit(qIndex, cIndex, e.target.value)}
+                        className={`w-full p-2 border rounded-md text-sm ${q.correct_answer === choice ? 'border-green-500 bg-green-50 ring-1 ring-green-500 text-green-900' : 'border-gray-300 text-gray-700'}`}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div className="p-4 border-b border-gray-200"><h2 className="text-lg font-bold font-poppins text-gray-800">Add New Topic</h2></div>
+            <div className="p-8">
+              {isGenerating ? (
+                <div className="text-center p-12">
+                  <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-indigo-600 mx-auto mb-4"></div>
+                  <p className="text-gray-700 font-inter font-medium">Gemini is analyzing your PDF...</p>
+                </div>
+              ) : (
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-blue-500 hover:bg-blue-50 transition cursor-pointer relative">
+                  <input type="file" accept=".pdf" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])} />
+                  <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  <p className="mt-2 font-inter text-gray-600"><span className="font-medium text-blue-600">Upload a PDF</span> to create a new topic</p>
+                  <p className="text-sm font-inter text-gray-400 mt-1">AI will auto-generate 20 multiple-choice questions from your material (Max 4.5MB)</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

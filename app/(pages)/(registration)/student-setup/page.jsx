@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../../_lib/supabaseClient'; // Updated path
+import { saveTursoProfile } from '@/app/actions/profiles';
 
 export default function StudentSetup() {
   const router = useRouter();
@@ -16,7 +17,6 @@ export default function StudentSetup() {
 
   // Dropdown Data Lists
   const [levelsList, setLevelsList] = useState([]);
-  const [programsList, setProgramsList] = useState([]);
 
   // Loading States
   const [loading, setLoading] = useState(true);
@@ -43,14 +43,7 @@ export default function StudentSetup() {
         .select('id, name')
         .order('name', { ascending: true });
 
-      // C. Fetch Programs
-      const { data: programs } = await supabase
-        .from('programs')
-        .select('id, name')
-        .order('name', { ascending: true });
-
       if (levels) setLevelsList(levels);
-      if (programs) setProgramsList(programs);
 
       setLoading(false);
     };
@@ -68,13 +61,11 @@ export default function StudentSetup() {
     } = await supabase.auth.getUser();
     if (!user) return;
 
-    // 2. Save the Profile with IDs
+    // 2. Save the Profile (Core details only to Supabase, to avoid schema uuid conflicts)
     const profileData = {
       id: user.id,
       full_name: fullName,
       role: 'student',
-      academic_level_id: academicLevelId, // Saving the ID, not text
-      program_id: programId, // Saving the ID, not text
     };
 
     const { error } = await supabase.from('profiles').upsert(profileData);
@@ -82,8 +73,21 @@ export default function StudentSetup() {
     if (error) {
       setMessage(`Error: ${error.message}`);
       setLoading(false);
-    } else {
+      return;
+    }
+
+    // 3. Save the Profile into Turso 
+    try {
+      await saveTursoProfile({
+        full_name: fullName,
+        email: user.email,
+        academic_level_id: academicLevelId,
+        program_id: programId
+      });
       router.push('/dashboard/student');
+    } catch (err) {
+      setMessage(`Error syncing profile to Turso: ${err.message}`);
+      setLoading(false);
     }
   };
 
@@ -116,13 +120,13 @@ export default function StudentSetup() {
             />
           </div>
 
-          {/* Full Name (Editable) */}
+          {/* Username (Editable) */}
           <div>
             <label
               htmlFor="fullName"
               className="block text-sm font-semi-bold font-inter brand-secondary leading-6"
             >
-              Full Name
+              Username
             </label>
             <input
               id="fullName"
@@ -159,7 +163,7 @@ export default function StudentSetup() {
             </select>
           </div>
 
-          {/* Program Dropdown */}
+          {/* Program Input */}
           <div>
             <label
               htmlFor="program"
@@ -167,20 +171,15 @@ export default function StudentSetup() {
             >
               Program / Strand
             </label>
-            <select
+            <input
               id="program"
+              type="text"
               required
+              placeholder="e.g. BS Computer Science"
               value={programId}
               onChange={(e) => setProgramId(e.target.value)}
               className="text-base font-medium font-inter leading-6 w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm bg-white focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">Select your program...</option>
-              {programsList.map((program) => (
-                <option key={program.id} value={program.id}>
-                  {program.name}
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
           <button

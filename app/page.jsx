@@ -24,14 +24,10 @@ export default function Welcome() {
           .eq('id', user.id)
           .single();
 
-        if (profile && profile.role) {
-          if (profile.role === 'student') {
-            router.push('/dashboard/student');
-          } else if (profile.role === 'educator') {
-            router.push('/dashboard/educator');
-          }
+        if (profile) {
+          router.push('/dashboard/student');
         } else {
-          router.push('/role-selection');
+          router.push('/student-setup');
         }
       }
     };
@@ -40,8 +36,12 @@ export default function Welcome() {
   }, [router]);
 
   const handleGoogleLogin = async () => {
+    const redirectTo = `${window.location.origin}/auth/callback`;
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
+      options: {
+        redirectTo,
+      },
     });
     if (error) {
       console.error('Error logging in with Google:', error.message);

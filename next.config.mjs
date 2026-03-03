@@ -1,6 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  /* config options here */
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '4.5mb',
+    },
+  },
+  serverActions: {
+    bodySizeLimit: '4.5mb',
+  },
   reactCompiler: true,
 };
 
