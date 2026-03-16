@@ -22,17 +22,24 @@ export async function saveQuestion(questionData) {
             bloom_level
         } = questionData;
 
+        // Shuffle choices so correct answer isn't always first
+        const shuffled = [...choices];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+
         const db = await getDbClient();
 
         const result = await db.execute({
             sql: `INSERT INTO questions 
-                  (course_id, material_id, question_text, choices, correct_answer, bloom_level, ease_factor, next_review_date) 
-                  VALUES (?, ?, ?, ?, ?, ?, 2.5, CURRENT_TIMESTAMP) RETURNING id`,
+                  (course_id, material_id, question_text, choices, correct_answer, bloom_level) 
+                  VALUES (?, ?, ?, ?, ?, ?) RETURNING id`,
             args: [
                 course_id,
                 material_id || null,
                 question_text,
-                JSON.stringify(choices), // FIX: Stringify JSON arrays for SQLite
+                JSON.stringify(shuffled), // Store shuffled choices
                 correct_answer,
                 bloom_level || null
             ]

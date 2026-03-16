@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/app/_lib/supabaseClient'
-import { uploadAndGenerateFromFormData } from '@/app/actions/generateQuestions'
+import { uploadAndGenerateFromFormData, uploadMaterialToStorage } from '@/app/actions/generateQuestions'
 import { saveQuestion } from '@/app/actions/questions'
-import { fetchCourseDetails, fetchStudentStats, saveLearningMaterial, fetchLearningMaterials, deleteLearningMaterial, updateCourseName } from '@/app/actions/courses'
+import { fetchCoursePageData, saveLearningMaterial, fetchLearningMaterials, deleteLearningMaterial, updateCourseName } from '@/app/actions/courses'
 
 export default function CourseLobby() {
   const params = useParams()
@@ -18,6 +18,7 @@ export default function CourseLobby() {
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({ total: 0, mastered: 0, due: 0 })
   const [materials, setMaterials] = useState([])
+  const [topicDue, setTopicDue] = useState({})
 
   // Course Name Editing
   const [isEditingName, setIsEditingName] = useState(false)
@@ -28,42 +29,49 @@ export default function CourseLobby() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedQuestions, setGeneratedQuestions] = useState([])
   const [isReviewing, setIsReviewing] = useState(false)
-  const [uploadedFilePath, setUploadedFilePath] = useState(null)
+  const [uploadedFile, setUploadedFile] = useState(null) // Raw File object for deferred upload
   const [uploadedFileName, setUploadedFileName] = useState(null)
   const [topicName, setTopicName] = useState('')
 
+  // Toast notifications
+  const [toast, setToast] = useState(null) // { type: 'success'|'error', message }
+  const toastTimerRef = useRef(null)
+  const showToast = (type, message) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    setToast({ type, message })
+    toastTimerRef.current = setTimeout(() => setToast(null), 4000)
+  }
+
   useEffect(() => {
     const fetchData = async () => {
+      const localToday = new Date().toLocaleDateString('en-CA')
       const { data: { user } } = await supabase.auth.getUser()
 
-      let courseData = null;
-      try {
-        courseData = await fetchCourseDetails(courseId);
-      } catch (err) {
-        console.error("Failed to fetch course details:", err);
-      }
-
-      if (!courseData) {
-        alert('Course not found!')
+      if (!user) {
         router.push('/dashboard/student')
         return
       }
 
-      setCourse(courseData)
-      setEditedName(courseData.course_name)
+      try {
+        const data = await fetchCoursePageData(courseId, localToday)
 
-      if (user) {
-        try {
-          const [courseStats, courseMaterials] = await Promise.all([
-            fetchStudentStats(courseId),
-            fetchLearningMaterials(courseId)
-          ]);
-          setStats(courseStats);
-          setMaterials(courseMaterials);
-        } catch (err) {
-          console.error("Failed to fetch course data:", err);
+        if (!data) {
+          alert('Course not found!')
+          router.push('/dashboard/student')
+          return
         }
+
+        setCourse(data.course)
+        setEditedName(data.course.course_name)
+        setStats(data.stats)
+        setMaterials(data.materials)
+        setTopicDue(data.topicDue)
+      } catch (err) {
+        console.error("Failed to fetch course data:", err)
+        alert('Course not found!')
+        router.push('/dashboard/student')
       }
+
       setLoading(false)
     }
     if (courseId) fetchData()
@@ -115,22 +123,38 @@ export default function CourseLobby() {
 
   const handlePublish = async () => {
     if (!topicName.trim()) {
-      alert('Please enter a topic name before publishing.');
+      showToast('error', 'Please enter a topic name before publishing.')
       return;
     }
 
     setLoading(true);
     try {
+      // Step 1: Upload file to Supabase Storage NOW (at publish time)
+      let filePath = null;
+      if (uploadedFile) {
+        const storageFormData = new FormData();
+        storageFormData.append('file', uploadedFile);
+        const storageResult = await uploadMaterialToStorage(storageFormData);
+        if (storageResult.success) {
+          filePath = storageResult.webViewLink;
+        }
+      }
+
+      // Step 2: Save topic to DB
       const materialResult = await saveLearningMaterial({
         course_id: courseId,
         file_name: uploadedFileName,
-        file_path: uploadedFilePath,
+        file_path: filePath,
         topic_name: topicName.trim(),
       });
 
       if (!materialResult.success) throw new Error('Failed to save material');
 
-      for (const q of generatedQuestions) {
+      // Step 3: Distribute answer positions before saving
+      const distributedQuestions = distributeAnswerPositions(generatedQuestions);
+
+      // Step 4: Save questions
+      for (const q of distributedQuestions) {
         await saveQuestion({
           course_id: courseId,
           material_id: materialResult.id,
@@ -141,28 +165,30 @@ export default function CourseLobby() {
         });
       }
 
-      alert('Topic created with ' + generatedQuestions.length + ' questions!');
+      showToast('success', `Topic "${topicName.trim()}" created with ${distributedQuestions.length} questions!`)
       setGeneratedQuestions([]);
       setIsReviewing(false);
+      setUploadedFile(null);
       setUploadedFileName(null);
-      setUploadedFilePath(null);
       setTopicName('');
 
-      const [newStats, newMaterials] = await Promise.all([
-        fetchStudentStats(courseId),
-        fetchLearningMaterials(courseId)
-      ]);
-      setStats(newStats);
-      setMaterials(newMaterials);
+      // Refresh data
+      const localToday = new Date().toLocaleDateString('en-CA')
+      const data = await fetchCoursePageData(courseId, localToday)
+      if (data) {
+        setStats(data.stats)
+        setMaterials(data.materials)
+        setTopicDue(data.topicDue)
+      }
     } catch (error) {
       console.error(error);
-      alert('Publish Error: ' + error.message);
+      showToast('error', 'Publish Error: ' + error.message)
     } finally {
       setLoading(false);
     }
   };
 
-  // --- File Upload ---
+  // --- File Upload (AI scan only — no storage upload) ---
   const handleFileUpload = async (file) => {
     setIsGenerating(true);
     try {
@@ -172,23 +198,62 @@ export default function CourseLobby() {
       const aiResult = await uploadAndGenerateFromFormData(formData);
       if (!aiResult.success) throw new Error(aiResult.error);
 
-      setUploadedFilePath(aiResult.driveWebViewLink);
+      setUploadedFile(file); // Keep raw file for deferred storage upload
       setUploadedFileName(file.name);
       setTopicName(file.name.replace(/\.pdf$/i, ''));
       setGeneratedQuestions(aiResult.data);
       setIsReviewing(true);
     } catch (error) {
-      alert('Error: ' + error.message);
+      showToast('error', 'Error: ' + error.message)
     } finally {
       setIsGenerating(false);
     }
   };
+
+  // --- Answer Position Distribution ---
+  // Ensures the correct answer cycles evenly across positions (A, B, C, D)
+  function distributeAnswerPositions(questions) {
+    return questions.map((q, idx) => {
+      const choices = [...q.choices];
+      const correctIdx = choices.indexOf(q.correct_answer);
+      if (correctIdx === -1) return q; // correct_answer not found in choices
+
+      // Target position: cycle through 0,1,2,3 to ensure even distribution
+      const targetPos = idx % choices.length;
+
+      if (correctIdx !== targetPos) {
+        // Swap the correct answer to the target position
+        [choices[correctIdx], choices[targetPos]] = [choices[targetPos], choices[correctIdx]];
+      }
+
+      return { ...q, choices };
+    });
+  }
 
   if (loading) return <div className="p-12 text-center text-gray-500 font-inter">Loading course data...</div>
   if (!course) return <div className="p-12 text-center font-inter">Course not found.</div>
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-8">
+
+      {/* Toast Notification */}
+      {toast && (
+        <div className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-xl shadow-lg border backdrop-blur-sm transition-all animate-[slideIn_0.3s_ease-out] ${toast.type === 'success'
+            ? 'bg-green-50/95 border-green-200 text-green-800'
+            : 'bg-red-50/95 border-red-200 text-red-800'
+          }`}>
+          <span className="text-lg">{toast.type === 'success' ? '✅' : '❌'}</span>
+          <p className="text-sm font-medium max-w-xs">{toast.message}</p>
+          <button
+            onClick={() => setToast(null)}
+            className="ml-2 text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* Breadcrumb */}
       <div className="flex items-center font-inter text-sm text-gray-500">
@@ -248,21 +313,25 @@ export default function CourseLobby() {
             )}
             <p className="text-gray-500 text-sm mt-1">Your personal study space</p>
           </div>
-          <Link
-            href={`/dashboard/student/course/${courseId}/review?topic=${encodeURIComponent(course.course_name + ' — All Topics')}`}
-            className="group relative inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-all transform hover:scale-105"
-          >
-            <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>Study All Topics</span>
-            {stats.due > 0 && (
-              <span className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-xs text-white ring-2 ring-white">
-                {stats.due}
-              </span>
-            )}
-          </Link>
+          {stats.due > 0 ? (
+            <Link
+              href={`/dashboard/student/course/${courseId}/review?topic=${encodeURIComponent(course.course_name + ' — All Topics')}`}
+              className="group relative inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-all transform hover:scale-105"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>Review {course.course_name} ({stats.due} Due)</span>
+            </Link>
+          ) : (
+            <div className="inline-flex items-center justify-center bg-green-100 text-green-700 font-bold py-3 px-8 rounded-full">
+              <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <span>All Caught Up!</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -313,16 +382,31 @@ export default function CourseLobby() {
 
                   {/* Two Buttons: Start Study Session + Topic Management */}
                   <div className="flex flex-wrap gap-3">
-                    <Link
-                      href={`/dashboard/student/course/${courseId}/review?materialId=${mat.id}&topic=${encodeURIComponent(mat.topic_name)}`}
-                      className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-5 rounded-full shadow-md transition-all transform hover:scale-[1.03]"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      Start Study Session
-                    </Link>
+                    {(() => {
+                      const dueCount = topicDue[mat.id] || 0;
+                      if (dueCount > 0) {
+                        return (
+                          <Link
+                            href={`/dashboard/student/course/${courseId}/review?materialId=${mat.id}&topic=${encodeURIComponent(mat.topic_name)}`}
+                            className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-5 rounded-full shadow-md transition-all transform hover:scale-[1.03]"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Study {mat.topic_name} ({dueCount} due)
+                          </Link>
+                        );
+                      }
+                      return (
+                        <span className="inline-flex items-center gap-2 bg-green-100 text-green-700 font-semibold py-2.5 px-5 rounded-full">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          All Caught Up
+                        </span>
+                      );
+                    })()}
 
                     <Link
                       href={`/dashboard/student/course/${courseId}/topic/${mat.id}`}

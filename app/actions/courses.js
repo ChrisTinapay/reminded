@@ -3,42 +3,6 @@
 import { createClient } from '@/utils/supabase/server';
 import { getDbClient } from '@/lib/turso';
 
-export async function fetchCourses() {
-    // 1. Verify user using Supabase Auth
-    const supabase = await createClient();
-    const { data: { user }, error } = await supabase.auth.getUser();
-
-    if (error || !user) {
-        console.error("fetchCourses: Unauthorized or no user found.", error);
-        return [];
-    }
-
-    try {
-        const db = await getDbClient();
-
-        // Query Turso using parameterized SQL
-        const result = await db.execute({
-            sql: `SELECT c.*, 
-                  (SELECT COUNT(*) FROM learning_materials lm WHERE lm.course_id = c.id) as topic_count
-                  FROM courses c WHERE c.student_id = ? ORDER BY c.created_at DESC`,
-            args: [user.id] // Safe positional argument
-        });
-
-        const courses = result.rows.map(row => ({
-            id: row.id,
-            course_name: row.name, // The schema used 'name'
-            student_id: row.student_id,
-            topic_count: row.topic_count || 0,
-            created_at: row.created_at
-        }));
-
-        return courses;
-    } catch (err) {
-        console.error("Error fetching courses from Turso:", err);
-        throw new Error("Failed to fetch courses");
-    }
-}
-
 export async function createCourse(courseData) {
     const supabase = await createClient();
     const { data: { user }, error } = await supabase.auth.getUser();
@@ -134,102 +98,84 @@ export async function fetchCourseDetails(courseId) {
     }
 }
 
-export async function fetchEnrolledCourses() {
-    const supabase = await createClient();
-    const { data: { user }, error } = await supabase.auth.getUser();
-
-    if (error || !user) {
-        throw new Error("Unauthorized");
-    }
-
-    try {
-        const db = await getDbClient();
-
-        // Query Turso for all courses that the student did not create
-        const result = await db.execute({
-            sql: `
-                SELECT c.id, c.name as course_name, c.student_id, c.created_at, p.full_name as educator_name
-                FROM courses c
-                LEFT JOIN profiles p ON c.student_id = p.id
-                WHERE c.student_id != ?
-                ORDER BY c.created_at DESC
-            `,
-            args: [user.id]
-        });
-
-        const courses = result.rows.map(row => ({
-            id: row.id,
-            course_name: row.course_name,
-            educator_id: row.student_id,
-            created_at: row.created_at,
-            profiles: {
-                full_name: row.educator_name || "Instructor"
-            },
-            // Legacy schema properties for frontend compatibility
-            academic_levels: { name: "All Levels" },
-            programs: { name: "General" }
-        }));
-
-        return courses;
-    } catch (err) {
-        console.error("Error fetching enrolled courses from Turso:", err);
-        throw new Error("Failed to fetch enrolled courses");
-    }
-}
-
-export async function fetchStudentStats(courseId) {
+// Combined fetch for course page — single auth check, single DB connection
+export async function fetchCoursePageData(courseId, clientToday = null) {
     const supabase = await createClient();
     const { data: { user }, error } = await supabase.auth.getUser();
 
     if (error || !user) throw new Error("Unauthorized");
 
+    const today = clientToday || new Date().toISOString().substring(0, 10);
+
     try {
         const db = await getDbClient();
 
-        // Count total questions for the course
-        const qResult = await db.execute({
-            sql: "SELECT COUNT(*) as count FROM questions WHERE course_id = ?",
-            args: [Number(courseId)]
-        });
-        const totalQ = Number(qResult.rows[0].count);
+        // Run all queries in parallel on the same connection
+        const [courseResult, materialsResult, statsResult, dueCountResult, newCountResult, masteredResult, topicDueResult, topicNewResult] = await Promise.all([
+            // Course details
+            db.execute({ sql: "SELECT * FROM courses WHERE id = ?", args: [Number(courseId)] }),
+            // Materials
+            db.execute({
+                sql: `SELECT lm.*, (SELECT COUNT(*) FROM questions q WHERE q.material_id = lm.id) as question_count
+                      FROM learning_materials lm WHERE lm.course_id = ? ORDER BY lm.created_at DESC`,
+                args: [Number(courseId)]
+            }),
+            // Total questions
+            db.execute({ sql: "SELECT COUNT(*) as count FROM questions WHERE course_id = ?", args: [Number(courseId)] }),
+            // Due questions
+            db.execute({
+                sql: `SELECT COUNT(*) as count FROM student_progress WHERE user_id = ? AND course_id = ? AND next_review_date <= ?`,
+                args: [user.id, Number(courseId), today]
+            }),
+            // New questions (never reviewed)
+            db.execute({
+                sql: `SELECT COUNT(*) as count FROM questions q LEFT JOIN student_progress sp ON sp.question_id = q.id AND sp.user_id = ? WHERE q.course_id = ? AND sp.id IS NULL`,
+                args: [user.id, Number(courseId)]
+            }),
+            // Mastered (interval >= 21 days)
+            db.execute({
+                sql: `SELECT COUNT(*) as count FROM student_progress WHERE user_id = ? AND course_id = ? AND interval >= 21`,
+                args: [user.id, Number(courseId)]
+            }),
+            // Per-topic due reviews
+            db.execute({
+                sql: `SELECT q.material_id, COUNT(*) as count FROM student_progress sp JOIN questions q ON sp.question_id = q.id WHERE sp.user_id = ? AND sp.course_id = ? AND sp.next_review_date <= ? GROUP BY q.material_id`,
+                args: [user.id, Number(courseId), today]
+            }),
+            // Per-topic new questions
+            db.execute({
+                sql: `SELECT q.material_id, COUNT(*) as count FROM questions q LEFT JOIN student_progress sp ON sp.question_id = q.id AND sp.user_id = ? WHERE q.course_id = ? AND sp.id IS NULL GROUP BY q.material_id`,
+                args: [user.id, Number(courseId)]
+            })
+        ]);
 
-        // Count questions with progress records that are due now
-        const dueResult = await db.execute({
-            sql: `SELECT COUNT(*) as count FROM student_progress 
-                  WHERE user_id = ? AND course_id = ? AND next_review_date <= ?`,
-            args: [user.id, Number(courseId), new Date().toISOString()]
-        });
-        const progressDue = Number(dueResult.rows[0].count);
+        // Build course
+        if (courseResult.rows.length === 0) return null;
+        const row = courseResult.rows[0];
+        const course = { id: row.id, course_name: row.name, student_id: row.student_id, created_at: row.created_at };
 
-        // Count NEW questions (never reviewed = no progress record)
-        const newResult = await db.execute({
-            sql: `SELECT COUNT(*) as count FROM questions 
-                  WHERE course_id = ? AND id NOT IN (
-                      SELECT question_id FROM student_progress 
-                      WHERE user_id = ? AND course_id = ?
-                  )`,
-            args: [Number(courseId), user.id, Number(courseId)]
-        });
-        const newCount = Number(newResult.rows[0].count);
+        // Build materials
+        const materials = materialsResult.rows.map(r => ({ id: r.id, course_id: r.course_id, file_name: r.file_name, file_path: r.file_path, topic_name: r.topic_name, question_count: r.question_count || 0, created_at: r.created_at }));
 
-        // Count mastered (interval > 21 days)
-        const masteredResult = await db.execute({
-            sql: `SELECT COUNT(*) as count FROM student_progress 
-                  WHERE user_id = ? AND course_id = ? AND interval > 21`,
-            args: [user.id, Number(courseId)]
-        });
-        const masteredCount = Number(masteredResult.rows[0].count);
+        // Build stats
+        const totalQ = Number(statsResult.rows[0].count);
+        const progressDue = Number(dueCountResult.rows[0].count);
+        const newQ = Number(newCountResult.rows[0].count);
+        const mastered = Number(masteredResult.rows[0].count);
+        const stats = { total: totalQ, mastered, due: progressDue + newQ };
 
-        return {
-            total: totalQ,
-            mastered: masteredCount,
-            due: progressDue + newCount  // Due = overdue reviews + never-reviewed questions
-        };
+        // Build topic due counts
+        const topicDue = {};
+        for (const r of topicDueResult.rows) topicDue[r.material_id] = (topicDue[r.material_id] || 0) + Number(r.count);
+        for (const r of topicNewResult.rows) topicDue[r.material_id] = (topicDue[r.material_id] || 0) + Number(r.count);
+
+        return { course, materials, stats, topicDue };
     } catch (err) {
-        console.error("Error fetching student stats from Turso:", err);
-        return { total: 0, mastered: 0, due: 0 };
+        console.error("Error fetching course page data:", err);
+        throw new Error("Failed to fetch course page data");
     }
 }
+
 
 export async function saveLearningMaterial({ course_id, file_name, file_path, topic_name }) {
     const supabase = await createClient();

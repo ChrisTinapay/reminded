@@ -28,9 +28,10 @@ export default function ReviewSession() {
   const timerRef = useRef(null)
 
   // 1. Initialize Session
+  const localToday = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD in user's timezone
   useEffect(() => {
     const init = async () => {
-      const { questions: qData } = await getDueQuestions(courseId, materialId)
+      const { questions: qData } = await getDueQuestions(courseId, materialId, localToday)
       if (qData && qData.length > 0) {
         setQuestions(qData)
       }
@@ -68,7 +69,7 @@ export default function ReviewSession() {
     setFeedback(isCorrect ? 'correct' : 'wrong')
 
     // 4. Send to Server (Background)
-    await submitQuizResult(courseId, currentQ.id, isCorrect, timeTaken)
+    await submitQuizResult(courseId, currentQ.id, isCorrect, timeTaken, localToday)
   }
 
   // 5. Next Question

@@ -18,9 +18,19 @@ export default function Header() {
           setAvatarUrl(user.user_metadata.avatar_url);
         }
 
+        // Check sessionStorage cache first to avoid Turso reads on every page
+        const cached = sessionStorage.getItem('reminded-profile');
+        if (cached) {
+          const profile = JSON.parse(cached);
+          setFullName(profile.full_name);
+          return;
+        }
+
         const profile = await getTursoProfile();
         if (profile) {
           setFullName(profile.full_name);
+          // Cache for the session
+          sessionStorage.setItem('reminded-profile', JSON.stringify(profile));
         } else if (user?.user_metadata?.full_name) {
           setFullName(user.user_metadata.full_name);
         }
@@ -31,8 +41,13 @@ export default function Header() {
 
     fetchProfile();
 
-    window.addEventListener('profileUpdated', fetchProfile);
-    return () => window.removeEventListener('profileUpdated', fetchProfile);
+    // Listen for profile updates (e.g., from profile edit page)
+    const handleProfileUpdate = () => {
+      sessionStorage.removeItem('reminded-profile'); // Clear cache
+      fetchProfile();
+    };
+    window.addEventListener('profileUpdated', handleProfileUpdate);
+    return () => window.removeEventListener('profileUpdated', handleProfileUpdate);
   }, []);
 
   return (

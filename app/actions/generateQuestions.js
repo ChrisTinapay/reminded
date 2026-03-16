@@ -10,6 +10,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
 
+// Step 1: ONLY scan the PDF with Gemini AI — no storage upload yet
 export async function uploadAndGenerateFromFormData(formData) {
   try {
     const file = formData.get('file');
@@ -21,22 +22,16 @@ export async function uploadAndGenerateFromFormData(formData) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    console.log("2. Starting parallel Supabase Upload & Gemini Analysis...");
+    console.log("2. Starting Gemini Analysis (no storage upload yet)...");
 
-    // Run both Supabase Store Upload and Gemini generation IN PARALLEL
-    const uploadPromise = uploadToSupabaseStorage(file.name, file.type, buffer);
-    const generatePromise = generateQuestionsFromBuffer(buffer);
+    // Only run AI generation — storage upload deferred to publish time
+    const questions = await generateQuestionsFromBuffer(buffer);
 
-    // Wait for both to finish
-    const [driveData, questions] = await Promise.all([uploadPromise, generatePromise]);
-
-    console.log("3. Success! Generated", questions.length, "questions and uploaded to Supabase.");
+    console.log("3. Generated", questions.length, "questions from AI.");
 
     return {
       success: true,
       data: questions,
-      driveFileId: driveData.id,
-      driveWebViewLink: driveData.webViewLink
     };
 
   } catch (error) {
@@ -45,29 +40,45 @@ export async function uploadAndGenerateFromFormData(formData) {
   }
 }
 
-async function uploadToSupabaseStorage(fileName, mimeType, buffer) {
-  const uniquePrefix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-  const safeFileName = uniquePrefix + '-' + fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
+// Step 2: Upload file to Supabase Storage — called at PUBLISH time only
+export async function uploadMaterialToStorage(formData) {
+  try {
+    const file = formData.get('file');
+    if (!file) throw new Error("No file to upload");
 
-  const { data, error } = await supabase.storage
-    .from('materials')
-    .upload(safeFileName, buffer, {
-      contentType: mimeType,
-      upsert: false
-    });
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
-  if (error) {
-    throw new Error('Supabase Upload Error: ' + error.message);
+    const uniquePrefix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const safeFileName = uniquePrefix + '-' + file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+
+    const { data, error } = await supabase.storage
+      .from('materials')
+      .upload(safeFileName, buffer, {
+        contentType: file.type,
+        upsert: false
+      });
+
+    if (error) {
+      console.error('Supabase Upload Error:', error.message);
+      // Non-critical: return empty link if storage fails
+      return { success: true, fileId: null, webViewLink: null };
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from('materials')
+      .getPublicUrl(safeFileName);
+
+    return {
+      success: true,
+      fileId: safeFileName,
+      webViewLink: publicUrlData.publicUrl
+    };
+  } catch (error) {
+    console.error("Storage Upload Error:", error);
+    // Non-critical: don't block publish if storage fails
+    return { success: true, fileId: null, webViewLink: null };
   }
-
-  const { data: publicUrlData } = supabase.storage
-    .from('materials')
-    .getPublicUrl(safeFileName);
-
-  return {
-    id: safeFileName,
-    webViewLink: publicUrlData.publicUrl
-  };
 }
 
 async function generateQuestionsFromBuffer(buffer) {
@@ -119,6 +130,8 @@ Bloom's Taxonomy: Create a mix of levels, BUT convert higher-order scenarios int
 Bad: 'John is a manager who notices X, Y, and Z... [long paragraph]... what should he do?'
 
 Good: 'Given condition X and Y, which management style is appropriate?'
+
+Answer Position: RANDOMIZE the position of the correct answer across all questions. The correct answer must NOT always be the first choice. Distribute the correct answer evenly across all positions (A, B, C, D).
 
 Output Format: JSON.`
   ]);

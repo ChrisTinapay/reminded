@@ -224,31 +224,40 @@ export default function StudyCalendar({ schedule = {} }) {
 
                     {selectedInfo && selectedInfo.length > 0 ? (
                         <div className="space-y-2">
-                            {selectedInfo.map((item, i) => (
-                                <div
-                                    key={`sched-${item.course_id}-${item.material_id}-${i}`}
-                                    className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200 hover:border-indigo-200 transition-colors"
-                                >
-                                    <div className="min-w-0 flex-1">
-                                        <p className="text-sm font-semibold text-gray-800 truncate">{item.topic_name}</p>
-                                        <p className="text-xs text-gray-400 truncate">{item.course_name}</p>
-                                    </div>
-                                    <div className="flex items-center gap-3 ml-3 flex-shrink-0">
-                                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${item.question_count <= 5 ? 'bg-blue-100 text-blue-700' :
+                            {selectedInfo.map((item, i) => {
+                                const isFuture = selectedDate > todayKey;
+                                return (
+                                    <div
+                                        key={`sched-${item.course_id}-${item.material_id}-${i}`}
+                                        className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200 hover:border-indigo-200 transition-colors"
+                                    >
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm font-semibold text-gray-800 truncate">{item.topic_name}</p>
+                                            <p className="text-xs text-gray-400 truncate">{item.course_name}</p>
+                                        </div>
+                                        <div className="flex items-center gap-3 ml-3 flex-shrink-0">
+                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${item.question_count <= 5 ? 'bg-blue-100 text-blue-700' :
                                                 item.question_count <= 15 ? 'bg-amber-100 text-amber-700' :
                                                     'bg-red-100 text-red-700'
-                                            }`}>
-                                            {item.question_count} due
-                                        </span>
-                                        <Link
-                                            href={`/dashboard/student/course/${item.course_id}/review?materialId=${item.material_id}&topic=${encodeURIComponent(item.topic_name)}`}
-                                            className="text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg transition-colors shadow-sm"
-                                        >
-                                            Study
-                                        </Link>
+                                                }`}>
+                                                {item.question_count} {isFuture ? 'scheduled' : 'due'}
+                                            </span>
+                                            {!isFuture ? (
+                                                <Link
+                                                    href={`/dashboard/student/course/${item.course_id}/review?materialId=${item.material_id}&topic=${encodeURIComponent(item.topic_name)}`}
+                                                    className="text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg transition-colors shadow-sm"
+                                                >
+                                                    Review ({item.question_count} due)
+                                                </Link>
+                                            ) : (
+                                                <span className="text-xs font-medium text-gray-400 bg-gray-100 px-3 py-1.5 rounded-lg">
+                                                    Upcoming
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     ) : (
                         <div className="text-center py-4">

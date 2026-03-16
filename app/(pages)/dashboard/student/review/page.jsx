@@ -23,9 +23,10 @@ export default function GlobalReviewSession() {
     const timerRef = useRef(null)
 
     // 1. Initialize Session
+    const localToday = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD in user's timezone
     useEffect(() => {
         const init = async () => {
-            const { questions: qData } = await getGlobalDueQuestions()
+            const { questions: qData } = await getGlobalDueQuestions(localToday)
             if (qData && qData.length > 0) {
                 setQuestions(qData)
             }
@@ -61,7 +62,7 @@ export default function GlobalReviewSession() {
         setFeedback(isCorrect ? 'correct' : 'wrong')
 
         // Send to Server
-        await submitQuizResult(currentQ.course_id, currentQ.id, isCorrect, timeTaken)
+        await submitQuizResult(currentQ.course_id, currentQ.id, isCorrect, timeTaken, localToday)
     }
 
     // 4. Next Question

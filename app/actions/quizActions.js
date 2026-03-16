@@ -14,16 +14,18 @@ function shuffleArray(arr) {
   return shuffled;
 }
 
-// Helper: Speed-based Grading Logic
+// Helper: Response Latency → Quality (q) Mapping
+// Based on Fessenden (2022) — 10s cognitive flow threshold
+// and Zhang et al. (2023) — latency as predictor of memory decay
 function calculateQuality(isCorrect, timeTakenSeconds) {
-  if (!isCorrect) return 0;
-  if (timeTakenSeconds <= 5) return 5;   // Instant Recall (Perfect)
-  if (timeTakenSeconds <= 12) return 4;  // Good pace
-  return 3;                               // Slow/Hesitant but correct
+  if (!isCorrect) return 0;              // Complete Blackout
+  if (timeTakenSeconds <= 10) return 5;   // Perfect Recall (≤10s)
+  if (timeTakenSeconds <= 20) return 4;   // Hesitant Recall (11–20s)
+  return 3;                               // Difficult Recall (>20s)
 }
 
 // 1. Fetch Questions (optionally filtered by materialId for topic-specific sessions)
-export async function getDueQuestions(courseId, materialId = null) {
+export async function getDueQuestions(courseId, materialId = null, clientToday = null) {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
 
@@ -32,7 +34,7 @@ export async function getDueQuestions(courseId, materialId = null) {
     return { error: 'Unauthorized' }
   }
 
-  const now = new Date().toISOString()
+  const today = clientToday || new Date().toISOString().substring(0, 10)
   const BATCH_SIZE = 20;
 
   try {
@@ -54,7 +56,7 @@ export async function getDueQuestions(courseId, materialId = null) {
               ${materialFilter}
             LIMIT ?
         `,
-      args: [user.id, Number(courseId), now, ...materialArg, BATCH_SIZE]
+      args: [user.id, Number(courseId), today, ...materialArg, BATCH_SIZE]
     });
 
     let questions = dueResult.rows.map(row => {
@@ -64,21 +66,19 @@ export async function getDueQuestions(courseId, materialId = null) {
 
     // B. If we have fewer than BATCH_SIZE items, fetch NEW questions (never reviewed)
     if (questions.length < BATCH_SIZE) {
-      const newMaterialFilter = materialId ? ' AND material_id = ?' : '';
+      const newMaterialFilter = materialId ? ' AND q.material_id = ?' : '';
       const newMaterialArg = materialId ? [Number(materialId)] : [];
 
       const newResult = await db.execute({
         sql: `
-                SELECT * FROM questions 
-                WHERE course_id = ? 
-                  AND id NOT IN (
-                      SELECT question_id FROM student_progress 
-                      WHERE user_id = ? AND course_id = ?
-                  )
+                SELECT q.* FROM questions q
+                LEFT JOIN student_progress sp ON sp.question_id = q.id AND sp.user_id = ?
+                WHERE q.course_id = ? 
+                  AND sp.id IS NULL
                   ${newMaterialFilter}
                 LIMIT ?
             `,
-        args: [Number(courseId), user.id, Number(courseId), ...newMaterialArg, BATCH_SIZE - questions.length]
+        args: [user.id, Number(courseId), ...newMaterialArg, BATCH_SIZE - questions.length]
       });
 
       const newQuestions = newResult.rows.map(row => {
@@ -97,7 +97,7 @@ export async function getDueQuestions(courseId, materialId = null) {
 }
 
 // 1b. Fetch Due Questions Globally (across ALL courses for Master Study button)
-export async function getGlobalDueQuestions() {
+export async function getGlobalDueQuestions(clientToday = null) {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
 
@@ -105,7 +105,7 @@ export async function getGlobalDueQuestions() {
     return { error: 'Unauthorized' }
   }
 
-  const now = new Date().toISOString()
+  const today = clientToday || new Date().toISOString().substring(0, 10)
   const BATCH_SIZE = 20;
 
   try {
@@ -125,7 +125,7 @@ export async function getGlobalDueQuestions() {
             ORDER BY sp.next_review_date ASC
             LIMIT ?
         `,
-      args: [user.id, now, BATCH_SIZE]
+      args: [user.id, today, BATCH_SIZE]
     });
 
     let questions = dueResult.rows.map(row => {
@@ -142,10 +142,9 @@ export async function getGlobalDueQuestions() {
                 FROM questions q
                 JOIN courses c ON q.course_id = c.id
                 LEFT JOIN learning_materials lm ON q.material_id = lm.id
+                LEFT JOIN student_progress sp ON sp.question_id = q.id AND sp.user_id = ?
                 WHERE c.student_id = ? 
-                  AND q.id NOT IN (
-                      SELECT question_id FROM student_progress WHERE user_id = ?
-                  )
+                  AND sp.id IS NULL
                 LIMIT ?
             `,
         args: [user.id, user.id, BATCH_SIZE - questions.length]
@@ -168,7 +167,7 @@ export async function getGlobalDueQuestions() {
 
 
 // 2. Save Result (SM-2 Algorithm - Standard Implementation)
-export async function submitQuizResult(courseId, questionId, isCorrect, timeTaken) {
+export async function submitQuizResult(courseId, questionId, isCorrect, timeTaken, clientToday = null) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -186,7 +185,7 @@ export async function submitQuizResult(courseId, questionId, isCorrect, timeTake
     // 2. Fetch previous state
     const prevResult = await db.execute({
       sql: `SELECT interval, ease_factor FROM student_progress WHERE user_id = ? AND question_id = ?`,
-      args: [user.id, String(questionId)]
+      args: [user.id, Number(questionId)]
     });
 
     const prev = prevResult.rows.length > 0 ? prevResult.rows[0] : null;
@@ -229,8 +228,14 @@ export async function submitQuizResult(courseId, questionId, isCorrect, timeTake
     }
     // --- SM-2 ALGORITHM END ---
 
-    const nextDate = new Date();
-    nextDate.setDate(nextDate.getDate() + newInterval);
+    // Use client's local date for next_review_date calculation
+    // Parse as local date, add interval, format as local YYYY-MM-DD (NOT toISOString which converts to UTC)
+    const baseDate = clientToday ? new Date(clientToday + 'T00:00:00') : new Date();
+    baseDate.setDate(baseDate.getDate() + newInterval);
+    const yyyy = baseDate.getFullYear();
+    const mm = String(baseDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(baseDate.getDate()).padStart(2, '0');
+    const nextDateStr = `${yyyy}-${mm}-${dd}`;
 
     // 4. Upsert to DB
     await db.execute({
@@ -245,10 +250,10 @@ export async function submitQuizResult(courseId, questionId, isCorrect, timeTake
       args: [
         user.id,
         Number(courseId),
-        String(questionId),
+        Number(questionId),
         newInterval,
         newEase,
-        nextDate.toISOString()
+        nextDateStr
       ]
     });
 

@@ -36,17 +36,13 @@ CREATE TABLE IF NOT EXISTS learning_materials (
 
 -- 4. Questions (Generated from materials)
 CREATE TABLE IF NOT EXISTS questions (
-  id TEXT PRIMARY KEY,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
   course_id INTEGER NOT NULL,
   material_id INTEGER,
   question_text TEXT NOT NULL,
   choices TEXT NOT NULL, -- Stored as JSON string '["A", "B", "C", "D"]'
   correct_answer TEXT NOT NULL,
   bloom_level TEXT,
-  ease_factor REAL DEFAULT 2.5,
-  interval INTEGER DEFAULT 0,
-  repetitions INTEGER DEFAULT 0,
-  next_review_date DATETIME,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
   FOREIGN KEY (material_id) REFERENCES learning_materials(id) ON DELETE SET NULL
@@ -57,7 +53,7 @@ CREATE TABLE IF NOT EXISTS student_progress (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id TEXT NOT NULL, -- References profiles(id)
   course_id INTEGER NOT NULL,
-  question_id TEXT NOT NULL,
+  question_id INTEGER NOT NULL,
   interval INTEGER DEFAULT 0,
   ease_factor REAL DEFAULT 2.5,
   next_review_date DATETIME,
