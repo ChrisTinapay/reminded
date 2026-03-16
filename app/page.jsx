@@ -53,7 +53,7 @@ export default function Welcome() {
       <ThemeToggle />
       <div className="mb-12 md:mb-16">
         <Image
-          src="/Logo.png"
+          src="/logo.png"
           alt="RemindED Logo"
           width={200}
           height={200}
