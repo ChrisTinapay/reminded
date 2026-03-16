@@ -76,17 +76,17 @@ export default function StudentSetup() {
       return;
     }
 
-    // 3. Save the Profile into Turso 
-    try {
-      await saveTursoProfile({
-        full_name: fullName,
-        email: user.email,
-        academic_level_id: academicLevelId,
-        program_id: programId
-      });
+    const tursoResult = await saveTursoProfile({
+      full_name: fullName,
+      email: user.email,
+      academic_level_id: academicLevelId,
+      program_id: programId
+    });
+
+    if (tursoResult?.success) {
       router.push('/dashboard/student');
-    } catch (err) {
-      setMessage(`Error syncing profile to Turso: ${err.message}`);
+    } else {
+      setMessage(tursoResult?.error || 'Failed to save profile. Please try again.');
       setLoading(false);
     }
   };

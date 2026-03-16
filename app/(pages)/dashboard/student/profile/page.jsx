@@ -68,21 +68,23 @@ export default function ProfilePage() {
             const { data: { user } } = await supabase.auth.getUser();
 
             if (user) {
-                // Update user metadata in Supabase (Auth side)
                 await supabase.auth.updateUser({
                     data: { full_name: fullName }
                 });
 
-                // Update profile in Turso (App side)
-                await saveTursoProfile({
+                const result = await saveTursoProfile({
                     full_name: fullName,
                     email: email,
                     academic_level_id: academicLevelId,
                     program_id: programId
                 });
 
-                window.dispatchEvent(new Event('profileUpdated'));
-                setMessage({ text: 'Profile updated successfully!', type: 'success' });
+                if (result?.success) {
+                    window.dispatchEvent(new Event('profileUpdated'));
+                    setMessage({ text: 'Profile updated successfully!', type: 'success' });
+                } else {
+                    setMessage({ text: result?.error || 'Failed to update profile.', type: 'error' });
+                }
             }
         } catch (err) {
             console.error(err);

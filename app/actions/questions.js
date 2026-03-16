@@ -4,12 +4,11 @@ import { createClient } from '@/utils/supabase/server';
 import { getDbClient } from '@/lib/turso';
 
 export async function saveQuestion(questionData) {
-    // 1. Verify user using Supabase Auth
     const supabase = await createClient();
     const { data: { user }, error } = await supabase.auth.getUser();
 
     if (error || !user) {
-        throw new Error("Unauthorized");
+        return { success: false, error: "Unauthorized — please sign in again." };
     }
 
     try {
@@ -39,7 +38,7 @@ export async function saveQuestion(questionData) {
                 course_id,
                 material_id || null,
                 question_text,
-                JSON.stringify(shuffled), // Store shuffled choices
+                JSON.stringify(shuffled),
                 correct_answer,
                 bloom_level || null
             ]
@@ -48,7 +47,7 @@ export async function saveQuestion(questionData) {
         return { success: true, id: result.rows[0].id };
     } catch (err) {
         console.error("Error saving question to Turso:", err);
-        throw new Error("Failed to save question");
+        return { success: false, error: "Failed to save question." };
     }
 }
 
@@ -57,7 +56,7 @@ export async function fetchQuestions(courseId) {
     const { data: { user }, error } = await supabase.auth.getUser();
 
     if (error || !user) {
-        throw new Error("Unauthorized");
+        return [];
     }
 
     try {
@@ -68,7 +67,7 @@ export async function fetchQuestions(courseId) {
             args: [Number(courseId)]
         });
 
-        const questions = result.rows.map(row => {
+        return result.rows.map(row => {
             const parsedChoices = typeof row.choices === 'string' ? JSON.parse(row.choices) : row.choices;
             const trimmedChoices = Array.isArray(parsedChoices) ? parsedChoices.map(c => typeof c === 'string' ? c.trim() : c) : parsedChoices;
             const correctAnswer = typeof row.correct_answer === 'string' ? row.correct_answer.trim() : row.correct_answer;
@@ -87,11 +86,9 @@ export async function fetchQuestions(courseId) {
             };
         });
 
-        return questions;
-
     } catch (err) {
         console.error("Error fetching questions from Turso:", err);
-        throw new Error("Failed to fetch questions");
+        return [];
     }
 }
 
@@ -99,7 +96,7 @@ export async function fetchQuestionsByMaterial(materialId) {
     const supabase = await createClient();
     const { data: { user }, error } = await supabase.auth.getUser();
 
-    if (error || !user) throw new Error("Unauthorized");
+    if (error || !user) return [];
 
     try {
         const db = await getDbClient();
@@ -125,7 +122,7 @@ export async function fetchQuestionsByMaterial(materialId) {
         });
     } catch (err) {
         console.error("Error fetching questions by material:", err);
-        throw new Error("Failed to fetch questions");
+        return [];
     }
 }
 
@@ -133,7 +130,7 @@ export async function updateQuestion(questionToSave) {
     const supabase = await createClient();
     const { data: { user }, error } = await supabase.auth.getUser();
 
-    if (error || !user) throw new Error("Unauthorized");
+    if (error || !user) return { success: false, error: "Unauthorized" };
 
     try {
         const db = await getDbClient();
@@ -153,7 +150,7 @@ export async function updateQuestion(questionToSave) {
         return { success: true };
     } catch (err) {
         console.error("Error updating question in Turso:", err);
-        throw new Error("Failed to update question");
+        return { success: false, error: "Failed to update question." };
     }
 }
 
@@ -161,7 +158,7 @@ export async function deleteQuestion(questionId) {
     const supabase = await createClient();
     const { data: { user }, error } = await supabase.auth.getUser();
 
-    if (error || !user) throw new Error("Unauthorized");
+    if (error || !user) return { success: false, error: "Unauthorized" };
 
     try {
         const db = await getDbClient();
@@ -173,6 +170,6 @@ export async function deleteQuestion(questionId) {
         return { success: true };
     } catch (err) {
         console.error("Error deleting question in Turso:", err);
-        throw new Error("Failed to delete question");
+        return { success: false, error: "Failed to delete question." };
     }
 }

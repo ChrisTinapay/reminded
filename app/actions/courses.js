@@ -8,27 +8,32 @@ export async function createCourse(courseData) {
     const { data: { user }, error } = await supabase.auth.getUser();
 
     if (error || !user) {
-        throw new Error("Unauthorized");
+        return { success: false, error: "Unauthorized — please sign in again." };
     }
 
     try {
         const db = await getDbClient();
         const { course_name, student_id } = courseData;
 
-        // Verify the user is passing their own ID or default to their ID securely
+        if (!course_name || !course_name.trim()) {
+            return { success: false, error: "Course name is required." };
+        }
+
         const finalStudentId = student_id || user.id;
 
         const result = await db.execute({
             sql: `INSERT INTO courses (name, student_id) VALUES (?, ?) RETURNING id`,
-            args: [course_name, finalStudentId]
+            args: [course_name.trim(), finalStudentId]
         });
 
-        const newCourseId = result.rows[0].id;
+        if (!result.rows.length) {
+            return { success: false, error: "Course was not created — no ID returned from database." };
+        }
 
-        return { success: true, id: newCourseId };
+        return { success: true, id: result.rows[0].id };
     } catch (err) {
         console.error("Error creating course in Turso:", err);
-        throw new Error("Failed to create course");
+        return { success: false, error: "Failed to create course. Please try again." };
     }
 }
 
@@ -36,7 +41,7 @@ export async function updateCourseName(courseId, newName) {
     const supabase = await createClient();
     const { data: { user }, error } = await supabase.auth.getUser();
 
-    if (error || !user) throw new Error("Unauthorized");
+    if (error || !user) return { success: false, error: "Unauthorized" };
 
     try {
         const db = await getDbClient();
@@ -49,7 +54,7 @@ export async function updateCourseName(courseId, newName) {
         return { success: true };
     } catch (err) {
         console.error("Error updating course name:", err);
-        throw new Error("Failed to update course name");
+        return { success: false, error: "Failed to update course name." };
     }
 }
 
@@ -57,9 +62,7 @@ export async function fetchCourseDetails(courseId) {
     const supabase = await createClient();
     const { data: { user }, error } = await supabase.auth.getUser();
 
-    if (error || !user) {
-        throw new Error("Unauthorized");
-    }
+    if (error || !user) return null;
 
     try {
         const db = await getDbClient();
@@ -74,27 +77,24 @@ export async function fetchCourseDetails(courseId) {
             args: [Number(courseId)]
         });
 
-        if (result.rows.length === 0) {
-            return null; // Course not found
-        }
+        if (result.rows.length === 0) return null;
 
         const row = result.rows[0];
 
         return {
             id: row.id,
             course_name: row.course_name,
-            educator_id: row.student_id, // Map student_id to educator_id for frontend compatibility
+            educator_id: row.student_id,
             created_at: row.created_at,
             profiles: {
                 full_name: row.full_name || "Instructor"
             },
-            // Legacy schema properties for frontend compatibility
             academic_levels: { name: "All Levels" },
             programs: { name: "General" }
         };
     } catch (err) {
         console.error("Error fetching course details from Turso:", err);
-        throw new Error("Failed to fetch course details");
+        return null;
     }
 }
 
@@ -103,14 +103,13 @@ export async function fetchCoursePageData(courseId, clientToday = null) {
     const supabase = await createClient();
     const { data: { user }, error } = await supabase.auth.getUser();
 
-    if (error || !user) throw new Error("Unauthorized");
+    if (error || !user) return null;
 
     const today = clientToday || new Date().toISOString().substring(0, 10);
 
     try {
         const db = await getDbClient();
 
-        // Run all queries in parallel on the same connection
         const [courseResult, materialsResult, statsResult, dueCountResult, newCountResult, masteredResult, topicDueResult, topicNewResult] = await Promise.all([
             // Course details
             db.execute({ sql: "SELECT * FROM courses WHERE id = ?", args: [Number(courseId)] }),
@@ -172,7 +171,7 @@ export async function fetchCoursePageData(courseId, clientToday = null) {
         return { course, materials, stats, topicDue };
     } catch (err) {
         console.error("Error fetching course page data:", err);
-        throw new Error("Failed to fetch course page data");
+        return null;
     }
 }
 
@@ -181,7 +180,7 @@ export async function saveLearningMaterial({ course_id, file_name, file_path, to
     const supabase = await createClient();
     const { data: { user }, error } = await supabase.auth.getUser();
 
-    if (error || !user) throw new Error("Unauthorized");
+    if (error || !user) return { success: false, error: "Unauthorized" };
 
     try {
         const db = await getDbClient();
@@ -194,7 +193,7 @@ export async function saveLearningMaterial({ course_id, file_name, file_path, to
         return { success: true, id: result.rows[0].id };
     } catch (err) {
         console.error("Error saving learning material to Turso:", err);
-        throw new Error("Failed to save learning material");
+        return { success: false, error: "Failed to save learning material." };
     }
 }
 
@@ -202,7 +201,7 @@ export async function fetchLearningMaterials(courseId) {
     const supabase = await createClient();
     const { data: { user }, error } = await supabase.auth.getUser();
 
-    if (error || !user) throw new Error("Unauthorized");
+    if (error || !user) return [];
 
     try {
         const db = await getDbClient();
@@ -234,7 +233,7 @@ export async function updateTopicName(materialId, newName) {
     const supabase = await createClient();
     const { data: { user }, error } = await supabase.auth.getUser();
 
-    if (error || !user) throw new Error("Unauthorized");
+    if (error || !user) return { success: false, error: "Unauthorized" };
 
     try {
         const db = await getDbClient();
@@ -247,7 +246,7 @@ export async function updateTopicName(materialId, newName) {
         return { success: true };
     } catch (err) {
         console.error("Error updating topic name:", err);
-        throw new Error("Failed to update topic name");
+        return { success: false, error: "Failed to update topic name." };
     }
 }
 
@@ -255,7 +254,7 @@ export async function checkTopicHasProgress(materialId) {
     const supabase = await createClient();
     const { data: { user }, error } = await supabase.auth.getUser();
 
-    if (error || !user) throw new Error("Unauthorized");
+    if (error || !user) return false;
 
     try {
         const db = await getDbClient();
@@ -278,50 +277,45 @@ export async function deleteLearningMaterial(materialId) {
     const supabase = await createClient();
     const { data: { user }, error } = await supabase.auth.getUser();
 
-    if (error || !user) throw new Error("Unauthorized");
+    if (error || !user) return { success: false, error: "Unauthorized" };
 
     try {
         const db = await getDbClient();
 
-        // 1. Get the file_path so we can delete from Supabase Storage
         const materialResult = await db.execute({
             sql: "SELECT file_path FROM learning_materials WHERE id = ?",
             args: [Number(materialId)]
         });
 
-        if (materialResult.rows.length === 0) throw new Error("Material not found");
+        if (materialResult.rows.length === 0) {
+            return { success: false, error: "Material not found." };
+        }
 
         const filePath = materialResult.rows[0].file_path;
 
-        // 2. Delete associated questions first
         await db.execute({
             sql: "DELETE FROM questions WHERE material_id = ?",
             args: [Number(materialId)]
         });
 
-        // 3. Delete from Turso
         await db.execute({
             sql: "DELETE FROM learning_materials WHERE id = ?",
             args: [Number(materialId)]
         });
 
-        // 4. Delete from Supabase Storage (extract filename from URL)
         try {
-            // The file_path is a full Supabase public URL like:
-            // https://xxx.supabase.co/storage/v1/object/public/materials/filename
             const urlParts = filePath.split('/materials/');
             if (urlParts.length > 1) {
                 const storageFileName = decodeURIComponent(urlParts[1]);
                 await supabase.storage.from('materials').remove([storageFileName]);
-                console.log("Deleted from Supabase Storage:", storageFileName);
             }
         } catch (storageErr) {
-            console.error("Warning: Failed to delete from storage (file may already be removed):", storageErr);
+            console.error("Warning: Failed to delete from storage:", storageErr);
         }
 
         return { success: true };
     } catch (err) {
         console.error("Error deleting learning material:", err);
-        throw new Error("Failed to delete learning material");
+        return { success: false, error: "Failed to delete learning material." };
     }
 }

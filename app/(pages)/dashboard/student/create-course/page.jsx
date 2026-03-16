@@ -15,7 +15,6 @@ export default function CreateCourse() {
   // Loading States
   const [loading, setLoading] = useState(false);
 
-  // 1. SAVE COURSE Logic (Using Turso Server Action)
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -25,12 +24,15 @@ export default function CreateCourse() {
         course_name: courseName,
       });
 
-      if (response && response.success) {
+      if (response?.success) {
         alert('Course created successfully!');
         router.push('/dashboard/student');
+      } else {
+        alert(response?.error || 'Something went wrong. Please try again.');
+        setLoading(false);
       }
     } catch (err) {
-      alert(`Error creating course: ${err.message}`);
+      alert('A network error occurred. Please check your connection and try again.');
       setLoading(false);
     }
   };

@@ -8,15 +8,13 @@ export async function saveTursoProfile(profileData) {
     const { data: { user }, error } = await supabase.auth.getUser();
 
     if (error || !user) {
-        throw new Error("Unauthorized");
+        return { success: false, error: "Unauthorized — please sign in again." };
     }
 
     try {
         const db = await getDbClient();
         const { full_name, email, academic_level_id, program_id } = profileData;
 
-        // Upsert the profile into Turso 
-        // SQLite upsert syntax: INSERT INTO ... ON CONFLICT(id) DO UPDATE SET ...
         await db.execute({
             sql: `
                 INSERT INTO profiles (id, full_name, email, academic_level_id, program_id) 
@@ -32,7 +30,7 @@ export async function saveTursoProfile(profileData) {
         return { success: true };
     } catch (err) {
         console.error("Error saving profile to Turso:", err);
-        throw new Error("Failed to save profile");
+        return { success: false, error: "Failed to save profile. Please try again." };
     }
 }
 
@@ -41,7 +39,6 @@ export async function getTursoProfile() {
     const { data: { user }, error } = await supabase.auth.getUser();
 
     if (error || !user) {
-        console.error("getTursoProfile: Unauthorized or no user found.", error);
         return null;
     }
 
@@ -67,6 +64,6 @@ export async function getTursoProfile() {
         };
     } catch (err) {
         console.error("Error fetching profile from Turso:", err);
-        throw new Error("Failed to fetch profile");
+        return null;
     }
 }
