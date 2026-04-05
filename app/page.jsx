@@ -20,9 +20,9 @@ export default function Welcome() {
       if (user) {
         const { data: profile, error } = await supabase
           .from('profiles')
-          .select('role')
+          .select('id')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
 
         if (profile) {
           router.push('/dashboard/student');

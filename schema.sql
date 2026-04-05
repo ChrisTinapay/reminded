@@ -1,3 +1,6 @@
+-- Legacy SQLite schema (Turso / libSQL). Do NOT run this in Supabase.
+-- For Supabase Postgres, use: supabase/schema.sql
+--
 -- SQLite Schema for Turso Migration
 
 -- 1. Profiles (Linked to Supabase Auth ID)

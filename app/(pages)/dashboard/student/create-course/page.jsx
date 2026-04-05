@@ -32,7 +32,21 @@ export default function CreateCourse() {
         setLoading(false);
       }
     } catch (err) {
-      alert('A network error occurred. Please check your connection and try again.');
+      console.error(err);
+      const message =
+        err?.message ||
+        (typeof err === 'string' ? err : null) ||
+        'Something went wrong. Please try again.';
+      const looksLikeNetwork =
+        message.includes('Failed to fetch') ||
+        message.includes('NetworkError') ||
+        message.includes('fetch') ||
+        err?.name === 'TypeError';
+      alert(
+        looksLikeNetwork
+          ? 'A network error occurred. Please check your connection and try again.'
+          : message,
+      );
       setLoading(false);
     }
   };

@@ -38,12 +38,19 @@ export default function StudentSetup() {
       }
 
       // B. Fetch Academic Levels
-      const { data: levels } = await supabase
+      const { data: levels, error: levelsError } = await supabase
         .from('academic_levels')
         .select('id, name')
         .order('name', { ascending: true });
 
-      if (levels) setLevelsList(levels);
+      if (levelsError) {
+        console.error('academic_levels:', levelsError);
+        setMessage(
+          'Could not load academic levels. Ask your admin to run supabase/migrations/add_academic_levels_standalone.sql in Supabase SQL.',
+        );
+      } else if (levels) {
+        setLevelsList(levels);
+      }
 
       setLoading(false);
     };
@@ -61,11 +68,11 @@ export default function StudentSetup() {
     } = await supabase.auth.getUser();
     if (!user) return;
 
-    // 2. Save the Profile (Core details only to Supabase, to avoid schema uuid conflicts)
+    // 2. Save the Profile row in Supabase (columns must match public.profiles — no legacy `role` column)
     const profileData = {
       id: user.id,
       full_name: fullName,
-      role: 'student',
+      email: user.email,
     };
 
     const { error } = await supabase.from('profiles').upsert(profileData);

@@ -23,10 +23,7 @@ export default function StudentList() {
 
         if (courseData) {
           // Temporarily fetching all students. (academic_level filtering logic suspended due to Turso schema migration)
-          const { data: studentData } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('role', 'student');
+          const { data: studentData } = await supabase.from('profiles').select('*');
 
           if (studentData) setStudents(studentData);
         }

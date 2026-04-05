@@ -27,7 +27,7 @@ export default function ProfilePage() {
                     setFullName(profile.full_name || '');
                     setEmail(profile.email || '');
                     setAcademicLevelId(profile.academic_level_id || '');
-                    setProgramId(profile.program_id || '');
+                    setProgramId(profile.program || profile.program_id || '');
                 } else {
                     // Fallback to supabase auth user if no Turso profile
                     const { data: { user } } = await supabase.auth.getUser();
