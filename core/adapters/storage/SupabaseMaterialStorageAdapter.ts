@@ -4,10 +4,16 @@ import { createAdminClient } from "@/utils/supabase/admin";
 export class SupabaseMaterialStorageAdapter implements MaterialStoragePort {
   async removeMaterial(filePath: string): Promise<void> {
     const supabase = createAdminClient();
-    const urlParts = filePath.split("/materials/");
-    if (urlParts.length <= 1) return;
-    const storageFileName = decodeURIComponent(urlParts[1]);
-    const { error } = await supabase.storage.from("materials").remove([storageFileName]);
+    // New format: filePath is the storage object key (e.g. "123-...-file.pdf")
+    // Backward compatible: if an old public URL is stored, extract the key after "/materials/".
+    let key = String(filePath || "").trim();
+    if (!key) return;
+    if (key.startsWith("http")) {
+      const parts = key.split("/materials/");
+      if (parts.length <= 1) return;
+      key = decodeURIComponent(parts[1]);
+    }
+    const { error } = await supabase.storage.from("materials").remove([key]);
     if (error) throw error;
   }
 }

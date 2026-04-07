@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { fetchCourseDetails, fetchLearningMaterials, deleteLearningMaterial, updateTopicName, checkTopicHasProgress } from '@/app/actions/courses'
 import { fetchQuestionsByMaterial, updateQuestion, deleteQuestion } from '@/app/actions/questions'
+import { getSignedMaterialUrl } from '@/app/actions/materials'
 
 export default function TopicManagement() {
     const params = useParams()
@@ -29,6 +30,7 @@ export default function TopicManagement() {
 
     // Progress lock
     const [hasProgress, setHasProgress] = useState(false)
+    const [materialUrl, setMaterialUrl] = useState(null)
 
     useEffect(() => {
         const fetchData = async () => {
@@ -49,6 +51,11 @@ export default function TopicManagement() {
                 ])
                 setQuestions(qData)
                 setHasProgress(progressStatus)
+
+                if (currentMat?.id) {
+                    const urlRes = await getSignedMaterialUrl(currentMat.id)
+                    if (urlRes?.success) setMaterialUrl(urlRes.url)
+                }
             } catch (err) {
                 console.error("Failed to fetch topic data:", err)
             }
@@ -243,10 +250,10 @@ export default function TopicManagement() {
 
                 <div className="flex items-center justify-between p-4 border rounded-xl group hover:bg-gray-50 transition-colors">
                     <a
-                        href={material.file_path}
+                        href={materialUrl || '#'}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center flex-1 min-w-0"
+                        className={`flex items-center flex-1 min-w-0 ${materialUrl ? '' : 'pointer-events-none opacity-60'}`}
                     >
                         <div className="bg-indigo-100 p-3 rounded-lg text-indigo-600 mr-4 group-hover:bg-indigo-600 group-hover:text-white transition-colors flex-shrink-0">
                             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

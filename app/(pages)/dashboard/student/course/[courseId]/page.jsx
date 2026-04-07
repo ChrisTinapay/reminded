@@ -4,9 +4,11 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/app/_lib/supabaseClient'
-import { uploadAndGenerateFromFormData, uploadMaterialToStorage } from '@/app/actions/generateQuestions'
+import { uploadMaterialToStorage } from '@/app/actions/generateQuestions'
+import { enqueueQuizJobFromStorageRef, getJobQueueJob, retryJobQueueJob } from '@/app/actions/jobQueue'
+import { distributeAnswerPositions } from '@/lib/llm/distributeAnswerPositions'
 import { saveQuestion } from '@/app/actions/questions'
-import { fetchCoursePageData, saveLearningMaterial, fetchLearningMaterials, deleteLearningMaterial, updateCourseName } from '@/app/actions/courses'
+import { fetchCoursePageData, saveLearningMaterial, fetchLearningMaterials, deleteLearningMaterial, updateCourseName, updateTopicName } from '@/app/actions/courses'
 
 export default function CourseLobby() {
   const params = useParams()
@@ -29,18 +31,33 @@ export default function CourseLobby() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedQuestions, setGeneratedQuestions] = useState([])
   const [isReviewing, setIsReviewing] = useState(false)
+  const [activeJobId, setActiveJobId] = useState(null)
+  const [jobStatus, setJobStatus] = useState(null) // 'pending'|'processing'|'completed'|'failed'
+  const [jobAttempts, setJobAttempts] = useState(0)
+  const [jobLastError, setJobLastError] = useState(null)
   const [uploadedFile, setUploadedFile] = useState(null) // Raw File object for deferred upload
   const [uploadedFileName, setUploadedFileName] = useState(null)
+  const [uploadedStorageFileId, setUploadedStorageFileId] = useState(null)
+  const [draftMaterialId, setDraftMaterialId] = useState(null)
   const [topicName, setTopicName] = useState('')
 
   // Toast notifications
   const [toast, setToast] = useState(null) // { type: 'success'|'error', message }
   const toastTimerRef = useRef(null)
+  const jobPollRef = useRef(null)
+  const longWaitNotifiedRef = useRef(false)
   const showToast = (type, message) => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
     setToast({ type, message })
     toastTimerRef.current = setTimeout(() => setToast(null), 4000)
   }
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+      if (jobPollRef.current) clearInterval(jobPollRef.current)
+    }
+  }, [])
 
   useEffect(() => {
     const fetchData = async () => {
@@ -131,24 +148,34 @@ export default function CourseLobby() {
     try {
       // Step 1: Upload file to Supabase Storage NOW (at publish time)
       let filePath = null;
-      if (uploadedFile) {
+      if (uploadedStorageFileId) {
+        filePath = uploadedStorageFileId
+      } else if (uploadedFile) {
         const storageFormData = new FormData();
         storageFormData.append('file', uploadedFile);
         const storageResult = await uploadMaterialToStorage(storageFormData);
         if (storageResult.success) {
-          filePath = storageResult.webViewLink;
+          filePath = storageResult.fileId;
+          setUploadedStorageFileId(storageResult.fileId)
         }
       }
 
-      // Step 2: Save topic to DB
-      const materialResult = await saveLearningMaterial({
-        course_id: courseId,
-        file_name: uploadedFileName,
-        file_path: filePath,
-        topic_name: topicName.trim(),
-      });
+      let materialIdToUse = draftMaterialId
 
-      if (!materialResult.success) throw new Error('Failed to save material');
+      if (materialIdToUse) {
+        const topicRes = await updateTopicName(materialIdToUse, topicName.trim())
+        if (!topicRes?.success) throw new Error(topicRes?.error || 'Failed to update topic name')
+      } else {
+        const materialResult = await saveLearningMaterial({
+          course_id: courseId,
+          file_name: uploadedFileName,
+          file_path: filePath,
+          topic_name: topicName.trim(),
+        });
+
+        if (!materialResult.success) throw new Error('Failed to save material');
+        materialIdToUse = materialResult.id
+      }
 
       // Step 3: Distribute answer positions before saving
       const distributedQuestions = distributeAnswerPositions(generatedQuestions);
@@ -157,7 +184,7 @@ export default function CourseLobby() {
       for (const q of distributedQuestions) {
         await saveQuestion({
           course_id: courseId,
-          material_id: materialResult.id,
+          material_id: materialIdToUse,
           question_text: q.question_text,
           choices: q.choices,
           correct_answer: q.correct_answer,
@@ -170,6 +197,8 @@ export default function CourseLobby() {
       setIsReviewing(false);
       setUploadedFile(null);
       setUploadedFileName(null);
+      setUploadedStorageFileId(null)
+      setDraftMaterialId(null)
       setTopicName('');
 
       // Refresh data
@@ -191,43 +220,116 @@ export default function CourseLobby() {
   // --- File Upload (AI scan only — no storage upload) ---
   const handleFileUpload = async (file) => {
     setIsGenerating(true);
+    longWaitNotifiedRef.current = false
+    setJobAttempts(0)
+    setJobLastError(null)
+    setDraftMaterialId(null)
     try {
       const formData = new FormData();
       formData.append('file', file);
 
-      const aiResult = await uploadAndGenerateFromFormData(formData);
-      if (!aiResult.success) throw new Error(aiResult.error);
+      // Upload once up-front so the worker can download it without embedding base64 in job_queue
+      const storageResult = await uploadMaterialToStorage(formData)
+      if (!storageResult.success) throw new Error(storageResult.error || 'Failed to upload PDF')
+      if (!storageResult.fileId) throw new Error('Storage did not return fileId')
 
-      setUploadedFile(file); // Keep raw file for deferred storage upload
+      setUploadedStorageFileId(storageResult.fileId)
+      setUploadedFile(file); // keep local copy (optional) for UI only
       setUploadedFileName(file.name);
       setTopicName(file.name.replace(/\.pdf$/i, ''));
-      setGeneratedQuestions(aiResult.data);
-      setIsReviewing(true);
+
+      // Enqueue background job (worker will process)
+      const enqueueResult = await enqueueQuizJobFromStorageRef({
+        courseId,
+        storageBucket: 'materials',
+        storagePath: storageResult.fileId,
+        fileName: file.name,
+        mimeType: file.type,
+      })
+      if (!enqueueResult.success) throw new Error(enqueueResult.error)
+
+      const jobId = enqueueResult.jobId
+      setActiveJobId(jobId)
+      setJobStatus('pending')
+      showToast('success', 'Queued. Generating questions in the background...')
+
+      // Poll until completed/failed
+      if (jobPollRef.current) clearInterval(jobPollRef.current)
+      const startedAt = Date.now()
+      jobPollRef.current = setInterval(async () => {
+        const jobRes = await getJobQueueJob(jobId)
+        if (!jobRes.success) return
+        const job = jobRes.data
+        setJobStatus(job.status)
+        setJobAttempts(job.attempts ?? 0)
+        setJobLastError(job.last_error ?? null)
+
+        if (job.status === 'completed') {
+          clearInterval(jobPollRef.current)
+          jobPollRef.current = null
+          setActiveJobId(null)
+          setJobStatus(null)
+
+          const questions = job?.result?.questions || []
+          const mid = job?.result?.meta?.materialId
+          if (mid != null && mid !== '') {
+            setDraftMaterialId(String(mid))
+          }
+          setGeneratedQuestions(questions)
+          setIsReviewing(true)
+          setIsGenerating(false)
+          if (questions.length > 0) {
+            showToast('success', 'Quiz is ready. Review and publish when you’re done.')
+          } else {
+            showToast('error', 'Job finished but no questions were returned. Try another PDF or retry.')
+          }
+        }
+
+        if (job.status === 'failed') {
+          clearInterval(jobPollRef.current)
+          jobPollRef.current = null
+          setActiveJobId(null)
+          setJobStatus(null)
+          setIsGenerating(false)
+          showToast('error', 'Generation failed: ' + (job.last_error || 'Unknown error'))
+        }
+
+        // One-time hint: usually means the VPS worker is not running or env is wrong
+        if (
+          Date.now() - startedAt > 90000 &&
+          job.status === 'pending' &&
+          !longWaitNotifiedRef.current
+        ) {
+          longWaitNotifiedRef.current = true
+          showToast(
+            'error',
+            'Still queued. If this continues, the background worker is probably not running — start it on your server (worker: npm run build && node dist/index.js) and set SUPABASE_SERVICE_ROLE_KEY + GOOGLE_GENERATIVE_AI_API_KEY.',
+          )
+        }
+      }, 2000)
     } catch (error) {
       showToast('error', 'Error: ' + error.message)
+      setJobStatus(null)
+      setIsGenerating(false)
+      if (jobPollRef.current) {
+        clearInterval(jobPollRef.current)
+        jobPollRef.current = null
+      }
     } finally {
-      setIsGenerating(false);
+      // keep spinner until job completes/fails
     }
   };
 
-  // --- Answer Position Distribution ---
-  // Ensures the correct answer cycles evenly across positions (A, B, C, D)
-  function distributeAnswerPositions(questions) {
-    return questions.map((q, idx) => {
-      const choices = [...q.choices];
-      const correctIdx = choices.indexOf(q.correct_answer);
-      if (correctIdx === -1) return q; // correct_answer not found in choices
-
-      // Target position: cycle through 0,1,2,3 to ensure even distribution
-      const targetPos = idx % choices.length;
-
-      if (correctIdx !== targetPos) {
-        // Swap the correct answer to the target position
-        [choices[correctIdx], choices[targetPos]] = [choices[targetPos], choices[correctIdx]];
-      }
-
-      return { ...q, choices };
-    });
+  const handleRetryJob = async () => {
+    if (!activeJobId) return
+    const res = await retryJobQueueJob(activeJobId)
+    if (!res?.success) {
+      showToast('error', res?.error || 'Retry failed')
+      return
+    }
+    showToast('success', 'Retry queued. Waiting for worker...')
+    longWaitNotifiedRef.current = false
+    setJobStatus('pending')
   }
 
   if (loading) return <div className="p-12 text-center text-gray-500 font-inter">Loading course data...</div>
@@ -500,9 +602,39 @@ export default function CourseLobby() {
             <div className="p-4 border-b border-gray-200"><h2 className="text-lg font-bold font-poppins text-gray-800">Add New Topic</h2></div>
             <div className="p-8">
               {isGenerating ? (
-                <div className="text-center p-12">
-                  <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-indigo-600 mx-auto mb-4"></div>
-                  <p className="text-gray-700 font-inter font-medium">Gemini is analyzing your PDF...</p>
+                <div className="text-center p-12 space-y-3">
+                  <p className="text-gray-800 font-inter font-semibold">
+                    Generating questions…
+                  </p>
+                  <p className="text-gray-600 text-sm">
+                    Status:{' '}
+                    <span className="font-medium">{jobStatus || 'queued'}</span>
+                    {activeJobId != null ? (
+                      <span className="text-gray-500">
+                        {' '}
+                        · job #{activeJobId} · attempts {jobAttempts}
+                      </span>
+                    ) : null}
+                  </p>
+                  {jobLastError ? (
+                    <p className="text-sm text-red-600 max-w-md mx-auto">{jobLastError}</p>
+                  ) : null}
+                  <p className="text-xs text-gray-500 max-w-md mx-auto">
+                    If status stays <span className="font-medium">pending</span> for a long time,
+                    no background worker is consuming the queue. On the machine running the worker,
+                    use <span className="font-mono">worker/.env.local</span> with{' '}
+                    <span className="font-mono">SUPABASE_SERVICE_ROLE_KEY</span>,{' '}
+                    <span className="font-mono">GOOGLE_GENERATIVE_AI_API_KEY</span>, and{' '}
+                    <span className="font-mono">SUPABASE_URL</span> or{' '}
+                    <span className="font-mono">NEXT_PUBLIC_SUPABASE_URL</span>.
+                  </p>
+                  <button
+                    onClick={handleRetryJob}
+                    disabled={!activeJobId}
+                    className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium border bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Retry
+                  </button>
                 </div>
               ) : (
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-blue-500 hover:bg-blue-50 transition cursor-pointer relative">
