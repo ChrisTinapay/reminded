@@ -78,6 +78,20 @@ var SupabaseAdapter = class {
     if (error) throw error;
     return Number(data.id);
   }
+  async replaceQuestionsForMaterial(input) {
+    const { error: delErr } = await this.supabase.from("questions").delete().eq("material_id", input.materialId);
+    if (delErr) throw delErr;
+    const rows = input.questions.map((q) => ({
+      course_id: input.courseId,
+      material_id: input.materialId,
+      question_text: q.question_text,
+      choices: q.choices,
+      correct_answer: q.correct_answer,
+      bloom_level: q.bloom_level ?? null
+    }));
+    const { error: insErr } = await this.supabase.from("questions").insert(rows);
+    if (insErr) throw insErr;
+  }
   toJobRecord(row) {
     return {
       id: row.id,
@@ -454,6 +468,19 @@ var ProcessQuizUseCase = class {
           console.error("[worker] insertLearningMaterialDraft failed:", e);
         }
       }
+      const finalMaterialId = payload.materialId != null && payload.materialId !== "" ? Number(payload.materialId) : materialIdNum;
+      if (Number.isFinite(courseIdNum) && finalMaterialId && Number.isFinite(finalMaterialId)) {
+        await this.db.replaceQuestionsForMaterial({
+          courseId: courseIdNum,
+          materialId: finalMaterialId,
+          questions: questions.map((q) => ({
+            question_text: q.question_text,
+            choices: q.choices,
+            correct_answer: q.correct_answer,
+            bloom_level: q.bloom_level
+          }))
+        });
+      }
       const result = {
         questions: questions.map((q) => ({
           question_text: q.question_text,
@@ -463,7 +490,8 @@ var ProcessQuizUseCase = class {
         })),
         meta: {
           courseId: payload.courseId,
-          materialId: payload.materialId ?? (materialIdNum != null ? String(materialIdNum) : void 0)
+          materialId: payload.materialId ?? (materialIdNum != null ? String(materialIdNum) : void 0),
+          questionsSaved: Number.isFinite(courseIdNum) && (payload.materialId != null || materialIdNum != null)
         }
       };
       await this.db.markCompleted(claimed.id, result);

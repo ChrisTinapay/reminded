@@ -140,6 +140,36 @@ export class SupabaseAdapter implements IDatabaseService {
     return Number((data as any).id);
   }
 
+  async replaceQuestionsForMaterial(input: {
+    courseId: number;
+    materialId: number;
+    questions: Array<{
+      question_text: string;
+      choices: string[];
+      correct_answer: string;
+      bloom_level: string;
+    }>;
+  }): Promise<void> {
+    // Idempotency: remove previous questions for this material, then insert the new set.
+    const { error: delErr } = await this.supabase
+      .from("questions")
+      .delete()
+      .eq("material_id", input.materialId);
+    if (delErr) throw delErr;
+
+    const rows = input.questions.map((q) => ({
+      course_id: input.courseId,
+      material_id: input.materialId,
+      question_text: q.question_text,
+      choices: q.choices,
+      correct_answer: q.correct_answer,
+      bloom_level: q.bloom_level ?? null,
+    }));
+
+    const { error: insErr } = await this.supabase.from("questions").insert(rows);
+    if (insErr) throw insErr;
+  }
+
   private toJobRecord(row: JobQueueRow): JobRecord {
     return {
       id: row.id,

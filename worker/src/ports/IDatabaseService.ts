@@ -51,6 +51,21 @@ export interface IDatabaseService {
     topicName: string;
   }): Promise<number>;
 
+  /**
+   * Persist generated questions to the main `questions` table.
+   * Implementations should be idempotent per materialId (e.g. delete then insert).
+   */
+  replaceQuestionsForMaterial(input: {
+    courseId: number;
+    materialId: number;
+    questions: Array<{
+      question_text: string;
+      choices: string[];
+      correct_answer: string;
+      bloom_level: string;
+    }>;
+  }): Promise<void>;
+
   markCompleted(jobId: number, result: JobResult): Promise<void>;
   markFailed(jobId: number, errorMessage: string): Promise<void>;
 }

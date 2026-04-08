@@ -90,6 +90,25 @@ export class ProcessQuizUseCase {
         }
       }
 
+      // If we have a material, persist questions immediately so the user can navigate away.
+      const finalMaterialId =
+        payload.materialId != null && payload.materialId !== ""
+          ? Number(payload.materialId)
+          : materialIdNum;
+
+      if (Number.isFinite(courseIdNum) && finalMaterialId && Number.isFinite(finalMaterialId)) {
+        await this.db.replaceQuestionsForMaterial({
+          courseId: courseIdNum,
+          materialId: finalMaterialId,
+          questions: questions.map((q) => ({
+            question_text: q.question_text,
+            choices: q.choices,
+            correct_answer: q.correct_answer,
+            bloom_level: q.bloom_level,
+          })),
+        });
+      }
+
       const result: JobResult = {
         questions: questions.map((q) => ({
           question_text: q.question_text,
@@ -102,6 +121,9 @@ export class ProcessQuizUseCase {
           materialId:
             payload.materialId ??
             (materialIdNum != null ? String(materialIdNum) : undefined),
+          questionsSaved:
+            Number.isFinite(courseIdNum) &&
+            (payload.materialId != null || materialIdNum != null),
         },
       };
 

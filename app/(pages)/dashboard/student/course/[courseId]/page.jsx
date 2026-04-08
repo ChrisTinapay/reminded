@@ -9,6 +9,7 @@ import { enqueueQuizJobFromStorageRef, getJobQueueJob, retryJobQueueJob } from '
 import { distributeAnswerPositions } from '@/lib/llm/distributeAnswerPositions'
 import { saveQuestion } from '@/app/actions/questions'
 import { fetchCoursePageData, saveLearningMaterial, fetchLearningMaterials, deleteLearningMaterial, updateCourseName, updateTopicName } from '@/app/actions/courses'
+import CriticalMassGame from '@/app/components/CriticalMassGame'
 
 export default function CourseLobby() {
   const params = useParams()
@@ -276,10 +277,19 @@ export default function CourseLobby() {
             setDraftMaterialId(String(mid))
           }
           setGeneratedQuestions(questions)
-          setIsReviewing(true)
+          // Questions are now saved by the worker; keep review optional.
+          // Default UX: refresh the page data and notify.
+          setIsReviewing(false)
           setIsGenerating(false)
           if (questions.length > 0) {
-            showToast('success', 'Quiz is ready. Review and publish when you’re done.')
+            showToast('success', 'Quiz is ready and saved. You can leave this page anytime.')
+            const localToday = new Date().toLocaleDateString('en-CA')
+            const data = await fetchCoursePageData(courseId, localToday)
+            if (data) {
+              setStats(data.stats)
+              setMaterials(data.materials)
+              setTopicDue(data.topicDue)
+            }
           } else {
             showToast('error', 'Job finished but no questions were returned. Try another PDF or retry.')
           }
@@ -603,6 +613,9 @@ export default function CourseLobby() {
             <div className="p-8">
               {isGenerating ? (
                 <div className="text-center p-12 space-y-3">
+                  <div className="max-w-4xl mx-auto h-[360px] mb-5">
+                    <CriticalMassGame status="polling" />
+                  </div>
                   <p className="text-gray-800 font-inter font-semibold">
                     Generating questions…
                   </p>
