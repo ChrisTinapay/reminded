@@ -25,12 +25,13 @@ export function mapPromptForChunk(chunk: Chunk) {
 
 export function reducePromptForQuestions(allNotes: string[]) {
   return [
-    "Using the notes below, generate 20 multiple-choice questions.",
-    "Return ONLY JSON as an array of objects with fields:",
+    "Using the notes below, generate EXACTLY 20 multiple-choice questions (not 19, not 21).",
+    "Return ONLY JSON as an array of 20 objects with fields:",
     `question_text (string), choices (string[4]), correct_answer (string), bloom_level (string)`,
     "",
     "CRITICAL CONSTRAINTS:",
     "- question_text under 20 words",
+    "- exactly 4 choices per question",
     "- each choice under 5 words",
     "- answerable within 10 seconds",
     "- distribute correct answers evenly across A/B/C/D",

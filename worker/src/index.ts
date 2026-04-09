@@ -1,5 +1,7 @@
 import { SupabaseAdapter } from "./adapters/SupabaseAdapter";
-import { GeminiAdapter } from "./adapters/GeminiAdapter";
+import { OpenAIAdapter } from "./adapters/OpenAIAdapter";
+import { MockLLMAdapter } from "./adapters/MockLLMAdapter";
+import { PdfParseTextExtractorAdapter } from "./adapters/PdfParseTextExtractorAdapter";
 import { ProcessQuizUseCase } from "./application/ProcessQuizUseCase";
 import { loadWorkerEnv } from "./loadEnv";
 
@@ -62,13 +64,16 @@ async function main() {
     serviceRoleKey: getEnv("SUPABASE_SERVICE_ROLE_KEY"),
   });
 
-  const llm = new GeminiAdapter({
-    apiKey: getEnv("GOOGLE_GENERATIVE_AI_API_KEY"),
-    minDelayMs: numEnv("GEMINI_MIN_DELAY_MS", 200),
-    maxRetries: numEnv("GEMINI_MAX_RETRIES", 5),
-  });
+  const isDev = process.env.NODE_ENV !== "production";
+  const llm = isDev
+    ? new MockLLMAdapter()
+    : new OpenAIAdapter({
+        apiKey: getEnv("OPENAI_API_KEY"),
+        model: "gpt-4o-mini",
+      });
 
-  const useCase = new ProcessQuizUseCase(db, llm);
+  const textExtractor = new PdfParseTextExtractorAdapter();
+  const useCase = new ProcessQuizUseCase(db, llm, textExtractor);
 
   const pollIntervalMs = numEnv("POLL_INTERVAL_MS", 5000);
   const maxConcurrentJobs = Math.max(1, Math.min(5, numEnv("MAX_CONCURRENT_JOBS", 5)));

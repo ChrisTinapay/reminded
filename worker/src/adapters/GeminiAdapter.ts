@@ -31,19 +31,52 @@ export class GeminiAdapter implements ILLMService {
     this.maxRetries = Math.max(0, opts.maxRetries);
   }
 
-  async generateQuestions(input: LLMJobInput): Promise<QuestionDraft[]> {
-    const notes = await this.mapReduceNotes(input);
-    let questions =
-      notes.length > 0 ? await this.reduceNotesToQuestions(notes) : [];
+  async mapChunkToNotes(prompt: string): Promise<{ notes: string[] }> {
+    const json = await this.callJsonWithBackoff(() => this.generateJsonFromText(prompt));
+    const notes = Array.isArray((json as any)?.notes) ? (json as any).notes : [];
+    return { notes: notes.map((n: any) => String(n).trim()).filter(Boolean) };
+  }
 
-    if (
-      questions.length === 0 &&
-      input.kind === "pdfBase64" &&
-      input.base64?.length > 0
-    ) {
+  async reduceNotesToQuestions(prompt: string): Promise<QuestionDraft[]> {
+    const model = this.genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: SchemaType.ARRAY,
+          items: {
+            type: SchemaType.OBJECT,
+            properties: {
+              question_text: { type: SchemaType.STRING },
+              choices: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+              correct_answer: { type: SchemaType.STRING },
+              bloom_level: { type: SchemaType.STRING },
+            },
+            required: ["question_text", "choices", "correct_answer", "bloom_level"],
+          },
+        },
+      },
+    });
+
+    const json = await this.callJsonWithBackoff(async () => {
+      await this.pace();
+      const res = await model.generateContent([prompt]);
+      return JSON.parse(res.response.text());
+    });
+
+    return normalizeQuestions(json);
+  }
+
+  async generateQuestions(input: LLMJobInput): Promise<QuestionDraft[]> {
+    // Backward-compat: keep prior behavior for any remaining callers.
+    const notes = await this.mapReduceNotes(input);
+    let questions: QuestionDraft[] = [];
+    if (notes.length > 0) {
+      questions = await this.reduceNotesToQuestions(reducePromptForQuestions(notes.slice(0, 250)));
+    }
+    if (questions.length === 0 && input.kind === "pdfBase64" && input.base64?.length > 0) {
       questions = await this.generateQuestionsDirectFromPdf(input);
     }
-
     return distributeAnswerPositions(questions as any) as any;
   }
 
@@ -74,36 +107,7 @@ export class GeminiAdapter implements ILLMService {
     return notes.map((n: any) => String(n).trim()).filter(Boolean);
   }
 
-  private async reduceNotesToQuestions(notes: string[]): Promise<QuestionDraft[]> {
-    const model = this.genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: SchemaType.ARRAY,
-          items: {
-            type: SchemaType.OBJECT,
-            properties: {
-              question_text: { type: SchemaType.STRING },
-              choices: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
-              correct_answer: { type: SchemaType.STRING },
-              bloom_level: { type: SchemaType.STRING },
-            },
-            required: ["question_text", "choices", "correct_answer", "bloom_level"],
-          },
-        },
-      },
-    });
-
-    const prompt = reducePromptForQuestions(notes.slice(0, 250));
-    const json = await this.callJsonWithBackoff(async () => {
-      await this.pace();
-      const res = await model.generateContent([prompt]);
-      return JSON.parse(res.response.text());
-    });
-
-    return normalizeQuestions(json);
-  }
+  // (legacy reduceNotesToQuestions(notes[]) removed; use reduceNotesToQuestions(prompt) instead)
 
   private async generateJsonFromText(prompt: string): Promise<any> {
     const model = this.genAI.getGenerativeModel({

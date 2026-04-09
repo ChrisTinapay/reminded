@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
+import OpenAI from 'openai';
+import { PDFParse } from 'pdf-parse';
 import { config } from 'dotenv';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
@@ -106,6 +107,230 @@ var SupabaseAdapter = class {
   }
 };
 
+// src/domain/validation.ts
+function normalizeQuestions(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  for (const item of raw) {
+    const q = item;
+    const question_text = typeof q?.question_text === "string" ? q.question_text.trim() : "";
+    const choices = Array.isArray(q?.choices) ? q.choices.map((c) => String(c).trim()) : [];
+    const correct_answer = typeof q?.correct_answer === "string" ? q.correct_answer.trim() : "";
+    const bloom_level = typeof q?.bloom_level === "string" ? q.bloom_level.trim() : "";
+    if (!question_text || choices.length < 2 || !correct_answer) continue;
+    out.push({ question_text, choices, correct_answer, bloom_level });
+  }
+  return out;
+}
+function distributeAnswerPositions(questions) {
+  return questions.map((q, idx) => {
+    const choices = [...q.choices];
+    const correctIdx = choices.indexOf(q.correct_answer);
+    if (correctIdx === -1) return q;
+    const targetPos = idx % choices.length;
+    if (correctIdx !== targetPos) {
+      const tmp = choices[targetPos];
+      choices[targetPos] = choices[correctIdx];
+      choices[correctIdx] = tmp;
+    }
+    return { ...q, choices };
+  });
+}
+
+// src/adapters/OpenAIAdapter.ts
+var OpenAIAdapter = class {
+  client;
+  model;
+  // CRITICAL: token bucket history (rolling 60s window)
+  tokenHistory = [];
+  constructor(opts) {
+    this.client = new OpenAI({ apiKey: opts.apiKey });
+    this.model = opts.model ?? "gpt-4o-mini";
+  }
+  estimateTokens(textChunk) {
+    return Math.ceil(String(textChunk ?? "").length / 4);
+  }
+  async throttleForText(textChunk) {
+    const estimatedTokens = this.estimateTokens(textChunk);
+    const now = Date.now();
+    this.tokenHistory = this.tokenHistory.filter((r) => now - r.timestamp <= 6e4);
+    const currentTpm = this.tokenHistory.reduce((sum, r) => sum + r.tokens, 0);
+    if (currentTpm + estimatedTokens > 18e4) {
+      const oldestRecord = this.tokenHistory[0];
+      if (!oldestRecord) {
+        await new Promise((resolve2) => setTimeout(resolve2, 250));
+        return this.throttleForText(textChunk);
+      }
+      const waitTime = 6e4 - (now - oldestRecord.timestamp);
+      if (waitTime > 0) {
+        console.warn(
+          `[openai][throttle] waiting ${waitTime}ms (window=${currentTpm} + est=${estimatedTokens} > 180000)`
+        );
+        await new Promise((resolve2) => setTimeout(resolve2, waitTime));
+      }
+      return this.throttleForText(textChunk);
+    }
+    this.tokenHistory.push({ timestamp: Date.now(), tokens: estimatedTokens });
+  }
+  async mapChunkToNotes(prompt) {
+    console.log(`[openai] mapChunkToNotes estTokens=${this.estimateTokens(prompt)}`);
+    await this.throttleForText(prompt);
+    const jsonSchema = {
+      name: "chunk_notes",
+      strict: true,
+      schema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          notes: {
+            type: "array",
+            items: { type: "string" }
+          }
+        },
+        required: ["notes"]
+      }
+    };
+    const res = await this.client.chat.completions.create({
+      model: this.model,
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_schema", json_schema: jsonSchema }
+    });
+    const content = res.choices?.[0]?.message?.content ?? "";
+    const parsed = JSON.parse(content);
+    const notes = Array.isArray(parsed?.notes) ? parsed.notes.map((n) => String(n)) : [];
+    return { notes };
+  }
+  async reduceNotesToQuestions(prompt) {
+    console.log(`[openai] reduceNotesToQuestions estTokens=${this.estimateTokens(prompt)}`);
+    await this.throttleForText(prompt);
+    const jsonSchema = {
+      name: "quiz_questions",
+      strict: true,
+      schema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          questions: {
+            type: "array",
+            minItems: 20,
+            maxItems: 20,
+            items: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                question_text: { type: "string" },
+                choices: {
+                  type: "array",
+                  items: { type: "string" },
+                  minItems: 4,
+                  maxItems: 4
+                },
+                correct_answer: { type: "string" },
+                bloom_level: { type: "string" }
+              },
+              required: ["question_text", "choices", "correct_answer", "bloom_level"]
+            }
+          }
+        },
+        required: ["questions"]
+      }
+    };
+    const res = await this.client.chat.completions.create({
+      model: this.model,
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_schema", json_schema: jsonSchema }
+    });
+    const content = res.choices?.[0]?.message?.content ?? "";
+    const parsed = JSON.parse(content);
+    const out = normalizeQuestions(parsed?.questions || []);
+    if (out.length !== 20) {
+      throw new Error(`OpenAI returned ${out.length} valid questions (expected exactly 20).`);
+    }
+    return out;
+  }
+  async generateQuestions(input) {
+    if (input.kind !== "text") {
+      throw new Error(
+        "OpenAIAdapter currently supports text inputs for map-reduce. Provide `text` in the job payload (PDF must be pre-extracted to text)."
+      );
+    }
+    const notes = await this.mapChunkToNotes(input.text);
+    const prompt = [
+      "Using the notes below, generate 20 multiple-choice questions.",
+      "Return ONLY JSON as an array.",
+      "Notes:",
+      ...notes.notes.map((n) => `- ${n}`)
+    ].join("\n");
+    return this.reduceNotesToQuestions(prompt);
+  }
+};
+
+// src/adapters/MockLLMAdapter.ts
+function sleep(ms) {
+  return new Promise((resolve2) => setTimeout(resolve2, ms));
+}
+var MockLLMAdapter = class {
+  async mapChunkToNotes(_prompt) {
+    console.log("\u{1F6E0}\uFE0F [MOCK LLM] Simulating 3s latency for method: mapChunkToNotes...");
+    await sleep(3e3);
+    return {
+      notes: [
+        "Definition: spaced repetition improves long-term recall.",
+        "Rule: correct answers must appear among choices.",
+        "Key idea: keep questions short and fast."
+      ]
+    };
+  }
+  async reduceNotesToQuestions(_prompt) {
+    console.log("\u{1F6E0}\uFE0F [MOCK LLM] Simulating 3s latency for method: reduceNotesToQuestions...");
+    await sleep(3e3);
+    return [
+      {
+        question_text: "What improves long-term recall?",
+        choices: ["Spaced repetition", "Cramming", "Guessing", "Skipping"],
+        correct_answer: "Spaced repetition",
+        bloom_level: "Understand"
+      },
+      {
+        question_text: "Which choice rule is correct?",
+        choices: ["Include correct answer", "Hide correct answer", "Use duplicates", "Use long options"],
+        correct_answer: "Include correct answer",
+        bloom_level: "Remember"
+      }
+    ];
+  }
+  async generateQuestions(_input) {
+    console.log("\u{1F6E0}\uFE0F [MOCK LLM] Simulating 3s latency for method: generateQuestions...");
+    await sleep(3e3);
+    return [
+      {
+        question_text: "What is the best study method here?",
+        choices: ["Spaced repetition", "All-nighter", "Random review", "No review"],
+        correct_answer: "Spaced repetition",
+        bloom_level: "Apply"
+      },
+      {
+        question_text: "How many options are typical?",
+        choices: ["4", "1", "10", "0"],
+        correct_answer: "4",
+        bloom_level: "Remember"
+      }
+    ];
+  }
+};
+var PdfParseTextExtractorAdapter = class {
+  async extractTextFromPdf(buffer) {
+    const parser = new PDFParse({ data: buffer });
+    try {
+      const res = await parser.getText();
+      return String(res.text ?? "").replace(/\r\n/g, "\n").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+    } finally {
+      await parser.destroy().catch(() => {
+      });
+    }
+  }
+};
+
 // src/domain/chunking.ts
 function clamp(n, min, max) {
   return Math.max(min, Math.min(max, n));
@@ -184,12 +409,13 @@ function mapPromptForChunk(chunk) {
 }
 function reducePromptForQuestions(allNotes) {
   return [
-    "Using the notes below, generate 20 multiple-choice questions.",
-    "Return ONLY JSON as an array of objects with fields:",
+    "Using the notes below, generate EXACTLY 20 multiple-choice questions (not 19, not 21).",
+    "Return ONLY JSON as an array of 20 objects with fields:",
     `question_text (string), choices (string[4]), correct_answer (string), bloom_level (string)`,
     "",
     "CRITICAL CONSTRAINTS:",
     "- question_text under 20 words",
+    "- exactly 4 choices per question",
     "- each choice under 5 words",
     "- answerable within 10 seconds",
     "- distribute correct answers evenly across A/B/C/D",
@@ -200,238 +426,38 @@ function reducePromptForQuestions(allNotes) {
   ].join("\n");
 }
 
-// src/domain/validation.ts
-function normalizeQuestions(raw) {
-  if (!Array.isArray(raw)) return [];
-  const out = [];
-  for (const item of raw) {
-    const q = item;
-    const question_text = typeof q?.question_text === "string" ? q.question_text.trim() : "";
-    const choices = Array.isArray(q?.choices) ? q.choices.map((c) => String(c).trim()) : [];
-    const correct_answer = typeof q?.correct_answer === "string" ? q.correct_answer.trim() : "";
-    const bloom_level = typeof q?.bloom_level === "string" ? q.bloom_level.trim() : "";
-    if (!question_text || choices.length < 2 || !correct_answer) continue;
-    out.push({ question_text, choices, correct_answer, bloom_level });
-  }
-  return out;
-}
-function distributeAnswerPositions(questions) {
-  return questions.map((q, idx) => {
-    const choices = [...q.choices];
-    const correctIdx = choices.indexOf(q.correct_answer);
-    if (correctIdx === -1) return q;
-    const targetPos = idx % choices.length;
-    if (correctIdx !== targetPos) {
-      const tmp = choices[targetPos];
-      choices[targetPos] = choices[correctIdx];
-      choices[correctIdx] = tmp;
-    }
-    return { ...q, choices };
-  });
-}
-
-// src/adapters/GeminiAdapter.ts
-function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-function isRateLimitError(err) {
-  const msg = String(err?.message || err);
-  return msg.includes("429") || msg.toLowerCase().includes("rate");
-}
-var GeminiAdapter = class {
-  genAI;
-  minDelayMs;
-  maxRetries;
-  lastCallAt = 0;
-  constructor(opts) {
-    this.genAI = new GoogleGenerativeAI(opts.apiKey);
-    this.minDelayMs = Math.max(0, opts.minDelayMs);
-    this.maxRetries = Math.max(0, opts.maxRetries);
-  }
-  async generateQuestions(input) {
-    const notes = await this.mapReduceNotes(input);
-    let questions = notes.length > 0 ? await this.reduceNotesToQuestions(notes) : [];
-    if (questions.length === 0 && input.kind === "pdfBase64" && input.base64?.length > 0) {
-      questions = await this.generateQuestionsDirectFromPdf(input);
-    }
-    return distributeAnswerPositions(questions);
-  }
-  async mapReduceNotes(input) {
-    if (input.kind === "text") {
-      const chunks = chunkText(input.text);
-      const notes2 = [];
-      for (const c of chunks) {
-        const json = await this.callJsonWithBackoff(
-          () => this.generateJsonFromText(mapPromptForChunk(c))
-        );
-        const n = Array.isArray(json?.notes) ? json.notes : [];
-        for (const item of n) {
-          const s = String(item).trim();
-          if (s) notes2.push(s);
-        }
-      }
-      return notes2;
-    }
-    const pdfNotesJson = await this.callJsonWithBackoff(() => this.generateNotesFromPdf(input));
-    const notes = Array.isArray(pdfNotesJson?.notes) ? pdfNotesJson.notes : [];
-    return notes.map((n) => String(n).trim()).filter(Boolean);
-  }
-  async reduceNotesToQuestions(notes) {
-    const model = this.genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: SchemaType.ARRAY,
-          items: {
-            type: SchemaType.OBJECT,
-            properties: {
-              question_text: { type: SchemaType.STRING },
-              choices: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
-              correct_answer: { type: SchemaType.STRING },
-              bloom_level: { type: SchemaType.STRING }
-            },
-            required: ["question_text", "choices", "correct_answer", "bloom_level"]
-          }
-        }
-      }
-    });
-    const prompt = reducePromptForQuestions(notes.slice(0, 250));
-    const json = await this.callJsonWithBackoff(async () => {
-      await this.pace();
-      const res = await model.generateContent([prompt]);
-      return JSON.parse(res.response.text());
-    });
-    return normalizeQuestions(json);
-  }
-  async generateJsonFromText(prompt) {
-    const model = this.genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      generationConfig: { responseMimeType: "application/json" }
-    });
-    await this.pace();
-    const res = await model.generateContent([prompt]);
-    return JSON.parse(res.response.text());
-  }
-  async generateNotesFromPdf(input) {
-    const model = this.genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      generationConfig: { responseMimeType: "application/json" }
-    });
-    await this.pace();
-    const res = await model.generateContent([
-      {
-        inlineData: {
-          data: input.base64,
-          mimeType: input.mimeType ?? "application/pdf"
-        }
-      },
-      [
-        "Extract concise study notes from this PDF.",
-        'Return ONLY JSON with schema: { "notes": string[] }',
-        "Rules:",
-        "- Notes must be concise (<= 18 words each)",
-        "- Prefer definitions, formulas, rules, key distinctions",
-        "- Avoid duplicates"
-      ].join("\n")
-    ]);
-    return JSON.parse(res.response.text());
-  }
-  /**
-   * When map→reduce yields no notes or no valid questions, generate MCQs in one structured call.
-   */
-  async generateQuestionsDirectFromPdf(input) {
-    const model = this.genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: SchemaType.ARRAY,
-          items: {
-            type: SchemaType.OBJECT,
-            properties: {
-              question_text: { type: SchemaType.STRING },
-              choices: {
-                type: SchemaType.ARRAY,
-                items: { type: SchemaType.STRING }
-              },
-              correct_answer: { type: SchemaType.STRING },
-              bloom_level: { type: SchemaType.STRING }
-            },
-            required: ["question_text", "choices", "correct_answer", "bloom_level"]
-          }
-        }
-      }
-    });
-    const json = await this.callJsonWithBackoff(async () => {
-      await this.pace();
-      const res = await model.generateContent([
-        {
-          inlineData: {
-            data: input.base64,
-            mimeType: input.mimeType ?? "application/pdf"
-          }
-        },
-        `Generate 20 multiple-choice questions based on this document.
-
-CRITICAL CONSTRAINTS:
-
-Brevity: The question stem must be under 20 words. The options must be under 5 words.
-
-Speed: The question must be readable and answerable within 10 seconds.
-
-Bloom's Taxonomy: Create a mix of levels, BUT convert higher-order scenarios into concise formats.
-
-Answer Position: Distribute the correct answer evenly across all positions (A, B, C, D).
-
-Output Format: JSON array only.`
-      ]);
-      return JSON.parse(res.response.text());
-    });
-    return normalizeQuestions(json);
-  }
-  async pace() {
-    const now = Date.now();
-    const elapsed = now - this.lastCallAt;
-    if (elapsed < this.minDelayMs) {
-      await sleep(this.minDelayMs - elapsed);
-    }
-    this.lastCallAt = Date.now();
-  }
-  async callJsonWithBackoff(fn) {
-    let attempt = 0;
-    while (true) {
-      try {
-        return await fn();
-      } catch (err) {
-        attempt += 1;
-        if (attempt > this.maxRetries || !isRateLimitError(err)) throw err;
-        const base = Math.min(1e4, 500 * 2 ** (attempt - 1));
-        const jitter = Math.floor(Math.random() * 250);
-        await sleep(base + jitter);
-      }
-    }
-  }
-};
-
 // src/application/ProcessQuizUseCase.ts
 var ProcessQuizUseCase = class {
-  constructor(db, llm) {
+  constructor(db, llm, textExtractor) {
     this.db = db;
     this.llm = llm;
+    this.textExtractor = textExtractor;
   }
   db;
   llm;
+  textExtractor;
+  log(jobId, message) {
+    console.log(`[job ${jobId}] ${message}`);
+  }
+  estimateTokens(text) {
+    return Math.ceil(String(text ?? "").length / 4);
+  }
   async processOne(job) {
     const claimed = await this.db.claimJob(job.id);
     if (!claimed) return;
+    const t0 = Date.now();
     try {
       const payload = claimed.payload ?? {};
-      const text = typeof payload.text === "string" ? payload.text : "";
+      let text = typeof payload.text === "string" ? payload.text : "";
       const pdfBase64 = typeof payload.pdfBase64 === "string" ? payload.pdfBase64 : "";
       const storageBucket = typeof payload.storageBucket === "string" ? payload.storageBucket : "";
       const storagePath = typeof payload.storagePath === "string" ? payload.storagePath : "";
       const mimeType = typeof payload.mimeType === "string" ? payload.mimeType : "";
+      const fileName = typeof payload.fileName === "string" ? payload.fileName : "";
+      this.log(
+        claimed.id,
+        `started. type=${claimed.type} file=${fileName || "n/a"} storage=${storageBucket || "n/a"}/${storagePath || "n/a"}`
+      );
       if (!text && !pdfBase64 && !(storageBucket && storagePath)) {
         throw new Error(
           "Job payload must include `text`, `pdfBase64`, or (`storageBucket` + `storagePath`)"
@@ -440,36 +466,78 @@ var ProcessQuizUseCase = class {
       let resolvedPdfBase64 = pdfBase64;
       let resolvedMimeType = mimeType || "application/pdf";
       if (!text && !resolvedPdfBase64 && storageBucket && storagePath) {
+        this.log(claimed.id, `downloading PDF from storage (${storageBucket}/${storagePath})...`);
         const buf = await this.db.downloadFromStorage(storageBucket, storagePath);
+        this.log(claimed.id, `downloaded PDF bytes=${buf.byteLength}`);
         resolvedPdfBase64 = buf.toString("base64");
         resolvedMimeType = mimeType || "application/pdf";
       }
-      const questions = await this.llm.generateQuestions(
-        text ? { kind: "text", text } : { kind: "pdfBase64", base64: resolvedPdfBase64, mimeType: resolvedMimeType }
+      if (!text) {
+        if (resolvedMimeType !== "application/pdf") {
+          throw new Error(`Unsupported mimeType for extraction: ${resolvedMimeType}`);
+        }
+        const pdfBuffer = resolvedPdfBase64 ? Buffer.from(resolvedPdfBase64, "base64") : storageBucket && storagePath ? await this.db.downloadFromStorage(storageBucket, storagePath) : null;
+        if (!pdfBuffer) {
+          throw new Error("No PDF buffer available for extraction");
+        }
+        this.log(claimed.id, "extracting text from PDF...");
+        text = await this.textExtractor.extractTextFromPdf(pdfBuffer);
+        this.log(claimed.id, `extracted text chars=${text.length} estTokens=${this.estimateTokens(text)}`);
+        if (!text) throw new Error("Extracted PDF text is empty");
+      }
+      this.log(claimed.id, "chunking text...");
+      const chunks = chunkText(text);
+      this.log(claimed.id, `chunked into ${chunks.length} chunk(s)`);
+      const notes = [];
+      for (const c of chunks) {
+        const prompt = mapPromptForChunk(c);
+        this.log(
+          claimed.id,
+          `map chunk #${c.index} chars=${c.text.length} promptEstTokens=${this.estimateTokens(prompt)}`
+        );
+        const mapped = await this.llm.mapChunkToNotes(prompt);
+        this.log(claimed.id, `map chunk #${c.index} notes=${mapped.notes?.length ?? 0}`);
+        for (const n of mapped.notes ?? []) {
+          const s = String(n).trim();
+          if (s) notes.push(s);
+        }
+      }
+      const reducePrompt = reducePromptForQuestions(notes.slice(0, 250));
+      this.log(
+        claimed.id,
+        `reduce notes=${notes.length} reducePromptEstTokens=${this.estimateTokens(reducePrompt)}`
       );
+      const questionsRaw = await this.llm.reduceNotesToQuestions(reducePrompt);
+      const questions = distributeAnswerPositions(questionsRaw);
+      this.log(claimed.id, `reduce produced questions=${questions.length}`);
       if (!questions.length) {
         throw new Error(
-          "No valid questions were produced (notes + reduce empty and direct PDF generation returned nothing). Check Gemini output / PDF content."
+          "No valid questions were produced (map-reduce produced empty output)."
         );
       }
       const courseIdNum = payload.courseId != null && payload.courseId !== "" ? Number(payload.courseId) : NaN;
-      const fileName = typeof payload.fileName === "string" ? payload.fileName : "";
       let materialIdNum;
       if (Number.isFinite(courseIdNum) && storagePath && fileName && !payload.materialId) {
         try {
           const topicSeed = fileName.replace(/\.pdf$/i, "").trim() || fileName;
+          this.log(claimed.id, `creating learning_materials draft topic="${topicSeed}"...`);
           materialIdNum = await this.db.insertLearningMaterialDraft({
             courseId: courseIdNum,
             fileName,
             filePath: storagePath,
             topicName: topicSeed
           });
+          this.log(claimed.id, `created learning_materials id=${materialIdNum}`);
         } catch (e) {
           console.error("[worker] insertLearningMaterialDraft failed:", e);
         }
       }
       const finalMaterialId = payload.materialId != null && payload.materialId !== "" ? Number(payload.materialId) : materialIdNum;
       if (Number.isFinite(courseIdNum) && finalMaterialId && Number.isFinite(finalMaterialId)) {
+        this.log(
+          claimed.id,
+          `saving questions to DB courseId=${courseIdNum} materialId=${finalMaterialId}...`
+        );
         await this.db.replaceQuestionsForMaterial({
           courseId: courseIdNum,
           materialId: finalMaterialId,
@@ -480,6 +548,7 @@ var ProcessQuizUseCase = class {
             bloom_level: q.bloom_level
           }))
         });
+        this.log(claimed.id, "saved questions to DB");
       }
       const result = {
         questions: questions.map((q) => ({
@@ -495,8 +564,11 @@ var ProcessQuizUseCase = class {
         }
       };
       await this.db.markCompleted(claimed.id, result);
+      this.log(claimed.id, `completed in ${Date.now() - t0}ms`);
     } catch (err) {
-      await this.db.markFailed(claimed.id, String(err?.message || err));
+      const msg = String(err?.message || err);
+      this.log(claimed.id, `failed after ${Date.now() - t0}ms: ${msg}`);
+      await this.db.markFailed(claimed.id, msg);
     }
   }
 };
@@ -557,12 +629,13 @@ async function main() {
     supabaseUrl: getSupabaseUrl(),
     serviceRoleKey: getEnv("SUPABASE_SERVICE_ROLE_KEY")
   });
-  const llm = new GeminiAdapter({
-    apiKey: getEnv("GOOGLE_GENERATIVE_AI_API_KEY"),
-    minDelayMs: numEnv("GEMINI_MIN_DELAY_MS", 200),
-    maxRetries: numEnv("GEMINI_MAX_RETRIES", 5)
+  const isDev = process.env.NODE_ENV !== "production";
+  const llm = isDev ? new MockLLMAdapter() : new OpenAIAdapter({
+    apiKey: getEnv("OPENAI_API_KEY"),
+    model: "gpt-4o-mini"
   });
-  const useCase = new ProcessQuizUseCase(db, llm);
+  const textExtractor = new PdfParseTextExtractorAdapter();
+  const useCase = new ProcessQuizUseCase(db, llm, textExtractor);
   const pollIntervalMs = numEnv("POLL_INTERVAL_MS", 5e3);
   const maxConcurrentJobs = Math.max(1, Math.min(5, numEnv("MAX_CONCURRENT_JOBS", 5)));
   const runLimited = createLimiter(maxConcurrentJobs);

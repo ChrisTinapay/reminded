@@ -11,7 +11,19 @@ export type LLMJobInput =
 
 export interface ILLMService {
   /**
-   * Must implement Map-Reduce orchestration internally to bypass token limits.
+   * Map step: from a single chunk prompt → { notes } JSON.
+   * The use case will call this sequentially across chunks.
+   */
+  mapChunkToNotes(prompt: string): Promise<{ notes: string[] }>;
+
+  /**
+   * Reduce step: from a combined notes prompt → questions JSON.
+   */
+  reduceNotesToQuestions(prompt: string): Promise<QuestionDraft[]>;
+
+  /**
+   * Backward-compatible convenience wrapper.
+   * (Prefer orchestrating map-reduce in the use case.)
    */
   generateQuestions(input: LLMJobInput): Promise<QuestionDraft[]>;
 }
