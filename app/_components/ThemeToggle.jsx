@@ -11,7 +11,7 @@ const ThemeToggle = () => {
   return (
     <button
       onClick={toggleTheme}
-      className="brand-background brand-primary flex items-center justify-center p-2 rounded-full dark:hover:bg-gray-100 hover:bg-gray-800 dark:hover:text-gray-800 hover:text-gray-100 transition shadow-xs shadow-gray-800 dark:shadow-gray-100 "
+      className="brand-surface brand-primary flex items-center justify-center p-2 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 transition shadow-xs shadow-black/10 dark:shadow-black/30 border brand-border"
     >
       {theme === 'dark' ? (
         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">

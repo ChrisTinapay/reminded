@@ -145,8 +145,8 @@ export default function TopicManagement() {
         }
     }
 
-    if (loading) return <div className="p-12 text-center text-gray-500 font-inter">Loading topic...</div>
-    if (!material) return <div className="p-12 text-center font-inter">Topic not found.</div>
+    if (loading) return <div className="p-12 text-center text-gray-500 dark:text-gray-400 font-inter">Loading topic...</div>
+    if (!material) return <div className="p-12 text-center text-gray-700 dark:text-gray-300 font-inter">Topic not found.</div>
 
     return (
         <div className="p-6 max-w-5xl mx-auto space-y-8">
@@ -154,7 +154,7 @@ export default function TopicManagement() {
             {/* QE Warning Modal */}
             {showQEWarning && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 relative">
+                    <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl max-w-md w-full p-8 relative border border-gray-100 dark:border-white/10">
                         <div className="flex justify-center mb-4">
                             <div className="w-14 h-14 bg-amber-100 rounded-full flex items-center justify-center">
                                 <svg className="w-7 h-7 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -162,8 +162,8 @@ export default function TopicManagement() {
                                 </svg>
                             </div>
                         </div>
-                        <h3 className="text-xl font-bold text-gray-900 text-center mb-2">Heads Up!</h3>
-                        <p className="text-gray-600 text-center text-sm leading-relaxed mb-6">
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 text-center mb-2">Heads Up!</h3>
+                        <p className="text-gray-600 dark:text-gray-300 text-center text-sm leading-relaxed mb-6">
                             The Question Editor shows all questions <strong>with their correct answers</strong>.
                             Viewing this before your study session may <strong>reduce the effectiveness</strong> of spaced repetition
                             and hinder your learning process.
@@ -171,7 +171,7 @@ export default function TopicManagement() {
                         <div className="flex gap-3">
                             <button
                                 onClick={() => setShowQEWarning(false)}
-                                className="flex-1 py-3 px-4 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
+                                className="flex-1 py-3 px-4 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors dark:text-gray-200 dark:bg-white/10 dark:hover:bg-white/15"
                             >
                                 Go Back
                             </button>
@@ -187,12 +187,12 @@ export default function TopicManagement() {
             )}
 
             {/* Breadcrumb */}
-            <div className="flex items-center font-inter text-sm text-gray-500">
-                <Link href="/dashboard/student" className="hover:text-blue-600">Dashboard</Link>
+            <div className="flex items-center font-inter text-sm text-gray-500 dark:text-gray-400">
+                <Link href="/dashboard/student" className="hover:text-blue-600 dark:hover:text-indigo-300">Dashboard</Link>
                 <span className="mx-2">/</span>
-                <Link href={`/dashboard/student/course/${courseId}`} className="hover:text-blue-600">{courseName}</Link>
+                <Link href={`/dashboard/student/course/${courseId}`} className="hover:text-blue-600 dark:hover:text-indigo-300">{courseName}</Link>
                 <span className="mx-2">/</span>
-                <span className="text-gray-900 font-medium">{material.topic_name}</span>
+                <span className="text-gray-900 dark:text-gray-100 font-medium">{material.topic_name}</span>
             </div>
 
             {/* Topic Header with Edit */}
@@ -205,7 +205,7 @@ export default function TopicManagement() {
                             onChange={(e) => setEditedTopicName(e.target.value)}
                             onKeyDown={handleTopicNameKeyDown}
                             autoFocus
-                            className="text-3xl font-bold text-gray-900 border-b-2 border-indigo-500 bg-transparent outline-none pb-1 pr-2"
+                            className="text-3xl font-bold text-gray-900 dark:text-gray-100 border-b-2 border-indigo-500 bg-transparent outline-none pb-1 pr-2"
                         />
                         <button
                             onClick={handleSaveTopicName}
@@ -219,7 +219,7 @@ export default function TopicManagement() {
                         </button>
                         <button
                             onClick={() => { setIsEditingTopicName(false); setEditedTopicName(material.topic_name); }}
-                            className="p-1.5 bg-gray-100 text-gray-500 rounded-lg hover:bg-gray-200 transition-colors"
+                            className="p-1.5 bg-gray-100 text-gray-500 rounded-lg hover:bg-gray-200 transition-colors dark:bg-white/10 dark:text-gray-300 dark:hover:bg-white/15"
                             title="Cancel"
                         >
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -229,10 +229,10 @@ export default function TopicManagement() {
                     </div>
                 ) : (
                     <div className="flex items-center gap-2">
-                        <h1 className="text-3xl font-bold text-gray-900">{material.topic_name}</h1>
+                        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{material.topic_name}</h1>
                         <button
                             onClick={() => setIsEditingTopicName(true)}
-                            className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                            className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors dark:hover:bg-indigo-500/10 dark:hover:text-indigo-200"
                             title="Edit topic name"
                         >
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -241,14 +241,14 @@ export default function TopicManagement() {
                         </button>
                     </div>
                 )}
-                <p className="text-gray-500 text-sm mt-1">Topic Management</p>
+                <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Topic Management</p>
             </div>
 
             {/* Learning Material Card */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-                <h2 className="text-xl font-bold text-gray-900 mb-4 border-b pb-2">Learning Material</h2>
+            <div className="brand-card p-8">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4 border-b brand-border pb-2">Learning Material</h2>
 
-                <div className="flex items-center justify-between p-4 border rounded-xl group hover:bg-gray-50 transition-colors">
+                <div className="flex items-center justify-between p-4 border brand-border rounded-xl group hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
                     <a
                         href={materialUrl || '#'}
                         target="_blank"
@@ -261,13 +261,13 @@ export default function TopicManagement() {
                             </svg>
                         </div>
                         <div className="min-w-0">
-                            <h3 className="text-indigo-700 font-semibold truncate group-hover:text-indigo-900 transition-colors">{material.file_name}</h3>
-                            <p className="text-sm text-gray-500">Uploaded {new Date(material.created_at).toLocaleDateString()}</p>
+                            <h3 className="text-indigo-700 dark:text-indigo-200 font-semibold truncate group-hover:text-indigo-900 dark:group-hover:text-indigo-100 transition-colors">{material.file_name}</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Uploaded {new Date(material.created_at).toLocaleDateString()}</p>
                         </div>
                     </a>
                     <button
                         onClick={handleDeleteMaterial}
-                        className="ml-4 flex-shrink-0 flex items-center gap-2 py-2 px-4 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors border border-red-200"
+                        className="ml-4 flex-shrink-0 flex items-center gap-2 py-2 px-4 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors border border-red-200 dark:bg-red-500/10 dark:border-red-500/30 dark:text-red-200 dark:hover:bg-red-500/15"
                     >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -278,15 +278,15 @@ export default function TopicManagement() {
             </div>
 
             {/* Question Editor Section */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-                <div className="flex justify-between items-center mb-4 border-b pb-2">
-                    <h2 className="text-xl font-bold text-gray-900">Question Editor</h2>
+            <div className="brand-card p-8">
+                <div className="flex justify-between items-center mb-4 border-b brand-border pb-2">
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Question Editor</h2>
                     <div className="flex items-center gap-3">
-                        <span className="text-sm text-gray-500">{questions.length} question{questions.length !== 1 ? 's' : ''}</span>
+                        <span className="text-sm text-gray-500 dark:text-gray-400">{questions.length} question{questions.length !== 1 ? 's' : ''}</span>
                         {showQuestions && (
                             <button
                                 onClick={() => setShowQuestions(false)}
-                                className="inline-flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 py-1.5 px-3 rounded-lg transition-colors"
+                                className="inline-flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 py-1.5 px-3 rounded-lg transition-colors dark:text-gray-300 dark:hover:text-gray-100 dark:bg-white/10 dark:hover:bg-white/15"
                                 title="Minimize Question Editor"
                             >
                                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -301,13 +301,13 @@ export default function TopicManagement() {
                 {/* Locked state: has progress */}
                 {hasProgress && !showQuestions ? (
                     <div className="text-center py-12">
-                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <div className="w-16 h-16 bg-gray-100 dark:bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4">
                             <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                             </svg>
                         </div>
-                        <p className="text-gray-600 mb-2 max-w-md mx-auto text-sm font-medium">Question Editor is locked</p>
-                        <p className="text-gray-400 mb-4 max-w-sm mx-auto text-xs">You have already started studying this topic. Editing questions after answering them may compromise your learning progress.</p>
+                        <p className="text-gray-600 dark:text-gray-300 mb-2 max-w-md mx-auto text-sm font-medium">Question Editor is locked</p>
+                        <p className="text-gray-400 dark:text-gray-400 mb-4 max-w-sm mx-auto text-xs">You have already started studying this topic. Editing questions after answering them may compromise your learning progress.</p>
                     </div>
                 ) : !showQuestions ? (
                     <div className="text-center py-12">
@@ -316,10 +316,10 @@ export default function TopicManagement() {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                             </svg>
                         </div>
-                        <p className="text-gray-600 mb-4 max-w-sm mx-auto text-sm">Questions are hidden to protect your learning. Only reveal them if you need to edit.</p>
+                        <p className="text-gray-600 dark:text-gray-300 mb-4 max-w-sm mx-auto text-sm">Questions are hidden to protect your learning. Only reveal them if you need to edit.</p>
                         <button
                             onClick={() => setShowQEWarning(true)}
-                            className="inline-flex items-center gap-2 py-2.5 px-5 text-sm font-medium text-amber-700 bg-amber-50 rounded-full hover:bg-amber-100 transition-colors border border-amber-200"
+                            className="inline-flex items-center gap-2 py-2.5 px-5 text-sm font-medium text-amber-700 bg-amber-50 rounded-full hover:bg-amber-100 transition-colors border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/30 dark:text-amber-200 dark:hover:bg-amber-500/15"
                         >
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -329,7 +329,7 @@ export default function TopicManagement() {
                     </div>
                 ) : questions.length === 0 ? (
                     <div className="text-center py-8">
-                        <p className="text-gray-500">No questions found for this topic.</p>
+                        <p className="text-gray-500 dark:text-gray-400">No questions found for this topic.</p>
                         <Link
                             href={`/dashboard/student/course/${courseId}`}
                             className="text-blue-600 font-medium hover:underline mt-2 inline-block"
@@ -344,7 +344,7 @@ export default function TopicManagement() {
                                 key={`qe-${q.id}-${qIndex}`}
                                 className={`p-6 rounded-lg shadow-sm border transition-colors ${dirtyQuestions.has(q.id)
                                     ? 'border-orange-300 ring-1 ring-orange-200'
-                                    : 'border-gray-200'
+                                    : 'border-gray-200 dark:border-white/10'
                                     }`}
                             >
                                 {/* Card Header */}
@@ -383,7 +383,7 @@ export default function TopicManagement() {
                                 <textarea
                                     value={q.question_text}
                                     onChange={(e) => handleQuestionChange(qIndex, 'question_text', e.target.value)}
-                                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-medium text-gray-800 mb-4"
+                                    className="w-full p-3 border border-gray-300 dark:border-white/10 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-medium text-gray-800 dark:text-gray-100 bg-white dark:bg-white/5 mb-4"
                                     rows={2}
                                 />
 
@@ -402,9 +402,9 @@ export default function TopicManagement() {
                                                 type="text"
                                                 value={choice}
                                                 onChange={(e) => handleChoiceChange(qIndex, cIndex, e.target.value)}
-                                                className={`w-full p-2 border rounded-md text-sm text-gray-800 transition-colors ${q.correct_answer === choice
-                                                    ? 'border-green-500 bg-green-50 ring-1 ring-green-500'
-                                                    : 'border-gray-300 focus:border-blue-400'
+                                                className={`w-full p-2 border rounded-md text-sm text-gray-800 dark:text-gray-100 bg-white dark:bg-white/5 transition-colors ${q.correct_answer === choice
+                                                    ? 'border-green-500 bg-green-50 ring-1 ring-green-500 dark:bg-green-500/10'
+                                                    : 'border-gray-300 dark:border-white/10 focus:border-blue-400'
                                                     }`}
                                             />
                                         </div>

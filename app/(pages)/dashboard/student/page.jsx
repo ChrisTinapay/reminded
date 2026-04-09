@@ -6,13 +6,11 @@ import Link from 'next/link';
 import { supabase } from '@/app/_lib/supabaseClient';
 
 import { fetchDashboardData } from '@/app/actions/dashboard';
-import StudyCalendar from '../_components/StudyCalendar';
 
 export default function StudentDashboard() {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [studentInfo, setStudentInfo] = useState(null);
-  const [schedule, setSchedule] = useState({});
   const [globalDue, setGlobalDue] = useState({ total: 0, courses: [] });
 
   useEffect(() => {
@@ -34,7 +32,6 @@ export default function StudentDashboard() {
           }
 
           setCourses(data.courses);
-          setSchedule(data.schedule);
           setGlobalDue(data.globalDue);
         } catch (err) {
           console.error(err);
@@ -47,7 +44,7 @@ export default function StudentDashboard() {
   }, []);
 
   if (loading)
-    return <div className="p-8 text-center">Loading your courses...</div>;
+    return <div className="p-8 text-center text-gray-600 dark:text-gray-400">Loading your courses...</div>;
 
   return (
     <div className="space-y-10 max-w-6xl mx-auto">
@@ -77,13 +74,10 @@ export default function StudentDashboard() {
         </div>
       </section>
 
-      {/* Calendar */}
-      <StudyCalendar schedule={schedule} />
-
       {/* Courses */}
       <section>
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">Your Courses</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Your Courses</h2>
           <Link href="/dashboard/student/create-course"
             className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-5 rounded-xl shadow-md transition-all transform hover:scale-[1.03]"
           >
@@ -95,14 +89,14 @@ export default function StudentDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {courses.map((course) => (
               <Link key={course.id} href={`/dashboard/student/course/${course.id}`}
-                className="group bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-lg transition-all"
+                className="group brand-card overflow-hidden hover:shadow-lg transition-all"
               >
                 <div className="h-2 bg-gradient-to-r from-indigo-500 to-violet-400" />
                 <div className="p-6">
-                  <h3 className="text-lg font-bold text-gray-900 group-hover:text-indigo-700 transition-colors mb-2">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors mb-2">
                     {course.course_name}
                   </h3>
-                  <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <div className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-400">
                     <span>{course.topic_count || 0} topics</span>
                     <span>•</span>
                     <span>{new Date(course.created_at).toLocaleDateString()}</span>
@@ -112,8 +106,8 @@ export default function StudentDashboard() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-16 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-            <p className="text-gray-400 text-lg mb-4 font-inter">No courses yet. Create your first course to get started!</p>
+          <div className="text-center py-16 bg-gray-50 dark:bg-white/5 rounded-2xl border border-dashed border-gray-200 dark:border-white/10">
+            <p className="text-gray-400 dark:text-gray-400 text-lg mb-4 font-inter">No courses yet. Create your first course to get started!</p>
             <Link href="/dashboard/student/create-course"
               className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-xl"
             >

@@ -6,6 +6,14 @@ export type CriticalMassStatus = "idle" | "polling" | "completed" | "error";
 
 type Props = {
   status: CriticalMassStatus;
+  /** 0..1 (best-effort). Rendered as an in-game “reactor charge” HUD. */
+  progress?: number;
+  /** Optional short label like "queued" | "processing" */
+  phaseLabel?: string;
+  /** Optional ETA in seconds (best-effort). */
+  etaSeconds?: number;
+  /** Show the gameplay hint text inside the canvas. */
+  showHint?: boolean;
   className?: string;
 };
 
@@ -51,6 +59,9 @@ type GameState = {
   nextShockId: number;
   shockwaves: Shockwave[];
 
+  // Processing HUD (smoothed)
+  hudProgress: number; // 0..1
+
   // Cached layout
   cx: number;
   cy: number;
@@ -62,9 +73,21 @@ function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
 
-export default function CriticalMassGame({ status, className }: Props) {
+export default function CriticalMassGame({
+  status,
+  progress = 0,
+  phaseLabel,
+  etaSeconds,
+  showHint = true,
+  className,
+}: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef<GameState | null>(null);
+  const hudRef = useRef<{ progress: number; phaseLabel?: string; etaSeconds?: number }>({
+    progress: 0,
+    phaseLabel: undefined,
+    etaSeconds: undefined,
+  });
 
   const colors = useMemo(
     () => ({
@@ -78,9 +101,21 @@ export default function CriticalMassGame({ status, className }: Props) {
       uiDim: "rgba(255,255,255,0.55)",
       perfect: "rgba(167, 139, 250, 0.95)", // violet
       shock: "rgba(59, 130, 246, 0.75)", // blue
+      hudBase: "rgba(255,255,255,0.12)",
+      hudTick: "rgba(255,255,255,0.20)",
+      hudText: "rgba(255,255,255,0.62)",
     }),
     [],
   );
+
+  // Update HUD refs whenever props change (without restarting the loop).
+  useEffect(() => {
+    hudRef.current = {
+      progress: clamp(progress, 0, 1),
+      phaseLabel,
+      etaSeconds,
+    };
+  }, [progress, phaseLabel, etaSeconds]);
 
   useEffect(() => {
     if (status !== "polling") return;
@@ -117,6 +152,7 @@ export default function CriticalMassGame({ status, className }: Props) {
         pendingFlip: false,
         nextShockId: 1,
         shockwaves: [],
+        hudProgress: 0,
         cx: 0,
         cy: 0,
         hgW: 0,
@@ -136,12 +172,25 @@ export default function CriticalMassGame({ status, className }: Props) {
       canvas.width = s.w;
       canvas.height = s.h;
 
+      const portrait = s.h > s.w * 1.08;
+
       // Layout: center hourglass, sized to fit.
       s.cx = s.w * 0.5;
-      s.cy = s.h * 0.52;
+
+      // Reserve space for the processing HUD when on small/portrait screens.
+      const margin = 18 * s.dpr;
+      const hudR = clamp(Math.min(s.w, s.h) * 0.14, 62 * s.dpr, 120 * s.dpr);
+      const hudPanelH = portrait ? (hudR * 2 + margin * 2 + 54 * s.dpr) : 0;
+      const bottomSafe = portrait ? 78 * s.dpr : 54 * s.dpr; // keep text away from bottom nav
+
       // Shorter, less “tower-like” hourglass proportions.
-      s.hgH = clamp(s.h * 0.52, 160 * s.dpr, 300 * s.dpr);
-      s.hgW = clamp(s.hgH * 0.46, 130 * s.dpr, 240 * s.dpr);
+      const maxHgH = Math.max(160 * s.dpr, Math.min(320 * s.dpr, (s.h - hudPanelH - bottomSafe) * 0.78));
+      s.hgH = clamp(s.h * 0.52, 150 * s.dpr, maxHgH);
+      s.hgW = clamp(s.hgH * 0.46, 120 * s.dpr, 240 * s.dpr);
+
+      // Place hourglass lower on portrait screens so the HUD can live above it.
+      const minCy = hudPanelH > 0 ? hudPanelH + s.hgH * 0.5 + 10 * s.dpr : 0;
+      s.cy = portrait ? Math.max(s.h * 0.58, minCy) : s.h * 0.52;
     };
 
     /**
@@ -203,6 +252,11 @@ export default function CriticalMassGame({ status, className }: Props) {
       if (!s) return;
       const dt = clamp((tNow - s.tPrev) / 1000, 0, 0.05);
       s.tPrev = tNow;
+
+      // Smooth the external HUD progress so it feels “in-world”.
+      const targetHud = clamp(hudRef.current.progress ?? 0, 0, 1);
+      const kHud = 1 - Math.pow(1 - 0.14, dt * 60); // frame-rate independent
+      s.hudProgress += (targetHud - s.hudProgress) * kHud;
 
       // Rotation animation (ease-in-out).
       if (s.rotating) {
@@ -304,6 +358,8 @@ export default function CriticalMassGame({ status, className }: Props) {
       const y0 = s.cy - hgH / 2;
       const pinchX = s.cx;
       const pinchY = s.cy;
+
+      const portrait = s.h > s.w * 1.08;
 
       // Apply shake + rotation to the drawing coordinates only (visual vibration / flip).
       const drawX = s.shake.x;
@@ -416,15 +472,39 @@ export default function CriticalMassGame({ status, className }: Props) {
 
       ctx.restore();
 
-      // UI text (score + combo + hint).
-      ctx.fillStyle = colors.ui;
-      ctx.font = `${12 * s.dpr}px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto`;
-      ctx.textAlign = "left";
-      ctx.textBaseline = "top";
-      ctx.fillText(`Score ${s.score}`, 16 * s.dpr, 14 * s.dpr);
+      // --- Processing HUD (reactor charge gauge) ---
+      // We compute placement early so other UI can avoid overlapping it.
+      const hudLayout = (() => {
+        const margin = 18 * s.dpr;
+        const small = Math.min(s.w, s.h) < 430 * s.dpr;
+        const r = clamp(
+          Math.min(s.w, s.h) * (portrait ? 0.12 : 0.14),
+          54 * s.dpr,
+          portrait ? 92 * s.dpr : 120 * s.dpr,
+        );
+        const cx = portrait ? s.w * 0.5 : s.w - margin - r;
+        const cy = margin + r;
+        return { margin, small, r, cx, cy };
+      })();
 
-      ctx.fillStyle = colors.uiDim;
-      ctx.fillText(`Combo ${s.combo}x`, 16 * s.dpr, 34 * s.dpr);
+      // UI text (score + combo) positioned to avoid HUD.
+      {
+        const leftX = 16 * s.dpr;
+        const topPad = 14 * s.dpr;
+        // On portrait, HUD sits near top-center; move score/combo below its footprint.
+        const yMin =
+          portrait ? hudLayout.cy + hudLayout.r + 16 * s.dpr : topPad;
+        const y0Text = yMin;
+
+        ctx.fillStyle = colors.ui;
+        ctx.font = `${12 * s.dpr}px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto`;
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+        ctx.fillText(`Score ${s.score}`, leftX, y0Text);
+
+        ctx.fillStyle = colors.uiDim;
+        ctx.fillText(`Combo ${s.combo}x`, leftX, y0Text + 20 * s.dpr);
+      }
 
       // Perfect! indicator.
       const now = performance.now();
@@ -437,16 +517,126 @@ export default function CriticalMassGame({ status, className }: Props) {
         ctx.fillText("Perfect!", s.cx, y0 - 18 * s.dpr);
       }
 
-      // Subtle instruction.
-      ctx.fillStyle = "rgba(255,255,255,0.40)";
-      ctx.font = `${11 * s.dpr}px ui-sans-serif, system-ui`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "bottom";
-      ctx.fillText(
-        "Tap during vibration for Perfect flip",
-        s.cx,
-        s.h - 12 * s.dpr,
-      );
+      // Subtle instruction (optional).
+      if (showHint) {
+        const instrY = Math.min(s.h - 14 * s.dpr, y0 + outlineH + 26 * s.dpr);
+        ctx.fillStyle = "rgba(255,255,255,0.40)";
+        ctx.font = `${11 * s.dpr}px ui-sans-serif, system-ui`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        ctx.fillText("Tap during vibration for Perfect flip", s.cx, instrY);
+      }
+
+      // --- Processing HUD (reactor charge gauge) ---
+      {
+        const p = clamp(s.hudProgress, 0, 1);
+        const phase = hudRef.current.phaseLabel;
+        const eta = hudRef.current.etaSeconds;
+
+        const { r, cx: gaugeCx, cy: gaugeCy, small } = hudLayout;
+
+        // Base arc (nearly full circle, with a small gap).
+        const a0 = Math.PI * 0.10;
+        const a1 = Math.PI * 1.90;
+        const span = a1 - a0;
+        const endA = a0 + span * p;
+
+        // Subtle “glass” backing.
+        ctx.beginPath();
+        ctx.arc(gaugeCx, gaugeCy, r, a0, a1);
+        ctx.strokeStyle = colors.hudBase;
+        ctx.lineWidth = 8 * s.dpr;
+        ctx.lineCap = "round";
+        ctx.stroke();
+
+        // Ticks (like a sci-fi dial).
+        const tickN = 24;
+        for (let i = 0; i <= tickN; i++) {
+          const t = i / tickN;
+          const a = a0 + span * t;
+          const inner = r - (i % 6 === 0 ? 18 : 12) * s.dpr;
+          const outer = r + (i % 6 === 0 ? 10 : 6) * s.dpr;
+          const x1 = gaugeCx + Math.cos(a) * inner;
+          const y1 = gaugeCy + Math.sin(a) * inner;
+          const x2 = gaugeCx + Math.cos(a) * outer;
+          const y2 = gaugeCy + Math.sin(a) * outer;
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
+          ctx.strokeStyle = i % 6 === 0 ? colors.hudTick : "rgba(255,255,255,0.12)";
+          ctx.lineWidth = (i % 6 === 0 ? 2.2 : 1.4) * s.dpr;
+          ctx.stroke();
+        }
+
+        // Charged arc with brand gradient.
+        if (p > 0.002) {
+          const gx = gaugeCx - r;
+          const gy = gaugeCy - r;
+          const grad = ctx.createLinearGradient(gx, gy, gx + 2 * r, gy + 2 * r);
+          grad.addColorStop(0.0, "rgba(99, 102, 241, 0.95)"); // indigo
+          grad.addColorStop(0.55, "rgba(167, 139, 250, 0.95)"); // violet
+          grad.addColorStop(1.0, "rgba(45, 212, 191, 0.85)"); // teal
+
+          ctx.beginPath();
+          ctx.arc(gaugeCx, gaugeCy, r, a0, endA);
+          ctx.strokeStyle = grad;
+          ctx.lineWidth = 8 * s.dpr;
+          ctx.lineCap = "round";
+          ctx.stroke();
+
+          // “Spark” at the tip (makes it feel alive, not generic).
+          const sx = gaugeCx + Math.cos(endA) * r;
+          const sy = gaugeCy + Math.sin(endA) * r;
+          const pulse = 0.55 + 0.45 * Math.sin(now / 140);
+          ctx.beginPath();
+          ctx.arc(sx, sy, (6 + 3 * pulse) * s.dpr, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(167, 139, 250, ${0.35 + 0.35 * pulse})`;
+          ctx.fill();
+        }
+
+        // Readout text centered under gauge.
+        // In the "finalizing" phase we want a slow, believable tick-up (85→100),
+        // not a jittery rounded value.
+        const pct = (() => {
+          if (phase === "finalizing" && typeof eta === "number" && eta >= 0) {
+            // eta counts down from ~15 → 0
+            const v = Math.floor(100 - eta);
+            return clamp(v, 85, 100);
+          }
+          return Math.round(p * 100);
+        })();
+        const label = phase ? `Processing (${phase})` : "Processing";
+        const etaText =
+          typeof eta === "number" && eta >= 0
+            ? `ETA ~${Math.max(0, Math.round(eta))}s`
+            : "Calibrating ETA…";
+
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+
+        // On small mobile screens, keep the HUD compact: only show % + a short ETA.
+        if (small) {
+          ctx.fillStyle = colors.ui;
+          ctx.font = `800 ${14 * s.dpr}px ui-sans-serif, system-ui`;
+          ctx.fillText(`${pct}%`, gaugeCx, gaugeCy + 18 * s.dpr);
+
+          ctx.fillStyle = colors.hudText;
+          ctx.font = `${10 * s.dpr}px ui-sans-serif, system-ui`;
+          ctx.fillText(typeof etaText === "string" ? etaText.replace("Calibrating ", "") : etaText, gaugeCx, gaugeCy + 38 * s.dpr);
+        } else {
+          ctx.fillStyle = colors.hudText;
+          ctx.font = `600 ${10 * s.dpr}px ui-sans-serif, system-ui`;
+          ctx.fillText(label, gaugeCx, gaugeCy + 14 * s.dpr);
+
+          ctx.fillStyle = colors.ui;
+          ctx.font = `800 ${15 * s.dpr}px ui-sans-serif, system-ui`;
+          ctx.fillText(`${pct}%`, gaugeCx, gaugeCy + 28 * s.dpr);
+
+          ctx.fillStyle = colors.hudText;
+          ctx.font = `${10 * s.dpr}px ui-sans-serif, system-ui`;
+          ctx.fillText(etaText, gaugeCx, gaugeCy + 48 * s.dpr);
+        }
+      }
 
       // Click pulse feedback: a quick ring around the hourglass center.
       if (s.clickPulseUntil > now) {

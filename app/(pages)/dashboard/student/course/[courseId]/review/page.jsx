@@ -85,16 +85,16 @@ export default function ReviewSession() {
     }
   }
 
-  if (loading) return <div className="h-screen flex items-center justify-center text-gray-500">Preparing session...</div>
+  if (loading) return <div className="h-screen flex items-center justify-center text-gray-500 dark:text-gray-400">Preparing session...</div>
 
   // --- COMPLETED STATE ---
   if (sessionComplete || questions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-[80vh] px-6 text-center">
-        <div className="bg-white p-10 rounded-3xl shadow-xl max-w-md w-full border border-gray-100">
-          <h2 className="text-3xl font-bold text-gray-800 mb-2">Session Complete! 🎉</h2>
+        <div className="bg-white dark:bg-white/5 p-10 rounded-3xl shadow-xl max-w-md w-full border border-gray-100 dark:border-white/10">
+          <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">Session Complete! 🎉</h2>
           <p className="text-sm text-indigo-600 font-medium mb-4">{topicLabel}</p>
-          <p className="text-gray-600 mb-8">
+          <p className="text-gray-600 dark:text-gray-300 mb-8">
             {questions.length === 0
               ? "No questions due for review right now. You're all caught up!"
               : "Great job! Your spaced repetition data has been updated."}
@@ -113,7 +113,7 @@ export default function ReviewSession() {
   const currentQ = questions[currentIndex]
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col max-w-2xl mx-auto p-4 md:p-6">
+    <div className="min-h-screen bg-transparent flex flex-col max-w-2xl mx-auto p-4 md:p-6">
 
       {/* Header & Progress */}
       <div className="flex justify-between items-center mb-6">
@@ -135,7 +135,7 @@ export default function ReviewSession() {
         </div>
       </div>
 
-      <div className="w-full bg-gray-200 h-2 rounded-full mb-8 overflow-hidden">
+      <div className="w-full bg-gray-200 dark:bg-white/10 h-2 rounded-full mb-8 overflow-hidden">
         <div
           className="bg-indigo-600 h-2 rounded-full transition-all duration-300 ease-out"
           style={{ width: `${((currentIndex) / questions.length) * 100}%` }}
@@ -143,8 +143,8 @@ export default function ReviewSession() {
       </div>
 
       {/* Question Card */}
-      <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 mb-6 flex-grow flex items-center justify-center min-h-[180px]">
-        <h2 className="text-xl md:text-2xl font-bold text-gray-800 text-center leading-relaxed">
+      <div className="bg-white dark:bg-white/5 p-8 rounded-3xl shadow-sm border border-gray-100 dark:border-white/10 mb-6 flex-grow flex items-center justify-center min-h-[180px]">
+        <h2 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 text-center leading-relaxed">
           {currentQ.question_text}
         </h2>
       </div>
@@ -153,7 +153,7 @@ export default function ReviewSession() {
       <div className="grid grid-cols-1 gap-4 mb-8">
         {currentQ.choices.map((choice, idx) => {
           // Dynamic Styles
-          let style = "bg-white border-2 border-gray-100 text-gray-700 hover:border-indigo-200 hover:bg-indigo-50"
+          let style = "bg-white border-2 border-gray-100 text-gray-700 hover:border-indigo-200 hover:bg-indigo-50 dark:bg-white/5 dark:border-white/10 dark:text-gray-200 dark:hover:border-indigo-400/30 dark:hover:bg-indigo-500/10"
 
           if (isAnswered) {
             if (choice === currentQ.correct_answer) {
@@ -161,7 +161,7 @@ export default function ReviewSession() {
             } else if (choice === selectedChoice) {
               style = "bg-red-500 border-red-600 text-white"
             } else {
-              style = "bg-gray-50 border-transparent text-gray-300 opacity-50 cursor-not-allowed"
+              style = "bg-gray-50 border-transparent text-gray-300 opacity-50 cursor-not-allowed dark:bg-white/5 dark:text-white/30"
             }
           }
 
@@ -187,13 +187,15 @@ export default function ReviewSession() {
         {isAnswered && (
           <div className={`
                 w-full p-4 rounded-xl flex justify-between items-center shadow-lg animate-in slide-in-from-bottom-2 fade-in
-                ${feedback === 'correct' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}
+                ${feedback === 'correct'
+              ? 'bg-green-50 border border-green-200 dark:bg-green-500/10 dark:border-green-500/30'
+              : 'bg-red-50 border border-red-200 dark:bg-red-500/10 dark:border-red-500/30'}
             `}>
             <div>
-              <span className={`font-bold text-lg block ${feedback === 'correct' ? 'text-green-800' : 'text-red-800'}`}>
+              <span className={`font-bold text-lg block ${feedback === 'correct' ? 'text-green-800 dark:text-green-200' : 'text-red-800 dark:text-red-200'}`}>
                 {feedback === 'correct' ? 'Correct!' : 'Incorrect'}
               </span>
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-gray-600 dark:text-gray-300">
                 {feedback === 'correct' && timer <= 5 && "⚡ Super fast! (+5 Quality)"}
                 {feedback === 'correct' && timer > 5 && timer <= 12 && "👍 Good pace! (+4 Quality)"}
                 {feedback === 'correct' && timer > 12 && "🐢 A bit slow. (+3 Quality)"}

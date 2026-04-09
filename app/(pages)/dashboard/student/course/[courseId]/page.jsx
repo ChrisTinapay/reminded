@@ -10,6 +10,7 @@ import { distributeAnswerPositions } from '@/lib/llm/distributeAnswerPositions'
 import { saveQuestion } from '@/app/actions/questions'
 import { fetchCoursePageData, saveLearningMaterial, fetchLearningMaterials, deleteLearningMaterial, updateCourseName, updateTopicName } from '@/app/actions/courses'
 import CriticalMassGame from '@/app/components/CriticalMassGame'
+import PdfPageSelector from '@/app/components/PdfPageSelector'
 
 export default function CourseLobby() {
   const params = useParams()
@@ -36,6 +37,13 @@ export default function CourseLobby() {
   const [jobStatus, setJobStatus] = useState(null) // 'pending'|'processing'|'completed'|'failed'
   const [jobAttempts, setJobAttempts] = useState(0)
   const [jobLastError, setJobLastError] = useState(null)
+  const [jobStartedAt, setJobStartedAt] = useState(null) // ms epoch
+  const jobStartedAtRef = useRef(null) // ms epoch (for polling closures)
+  const [completionStartedAt, setCompletionStartedAt] = useState(null) // ms epoch
+  const completionTimeoutRef = useRef(null)
+  const completionPayloadRef = useRef(null)
+  const [hudNow, setHudNow] = useState(() => Date.now())
+  const [pdfToSelect, setPdfToSelect] = useState(null) // File before page selection
   const [uploadedFile, setUploadedFile] = useState(null) // Raw File object for deferred upload
   const [uploadedFileName, setUploadedFileName] = useState(null)
   const [uploadedStorageFileId, setUploadedStorageFileId] = useState(null)
@@ -57,8 +65,16 @@ export default function CourseLobby() {
     return () => {
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
       if (jobPollRef.current) clearInterval(jobPollRef.current)
+      if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current)
     }
   }, [])
+
+  // Force periodic re-render while generating so the in-game HUD animates smoothly.
+  useEffect(() => {
+    if (!isGenerating) return
+    const id = setInterval(() => setHudNow(Date.now()), 250)
+    return () => clearInterval(id)
+  }, [isGenerating])
 
   useEffect(() => {
     const fetchData = async () => {
@@ -219,6 +235,11 @@ export default function CourseLobby() {
 
   // --- File Upload (AI scan only — no storage upload) ---
   const handleFileUpload = async (file) => {
+    // If the user hasn't selected pages yet, show the selector first.
+    // Once they confirm, we call this again with the extracted file.
+    if (!pdfToSelect && file && file.type === 'application/pdf') {
+      // allow direct start if caller explicitly passes an extracted file
+    }
     setIsGenerating(true);
     longWaitNotifiedRef.current = false
     setJobAttempts(0)
@@ -251,11 +272,13 @@ export default function CourseLobby() {
       const jobId = enqueueResult.jobId
       setActiveJobId(jobId)
       setJobStatus('pending')
+      const startedAt = Date.now()
+      setJobStartedAt(startedAt)
+      jobStartedAtRef.current = startedAt
       showToast('success', 'Queued. Generating questions in the background...')
 
       // Poll until completed/failed
       if (jobPollRef.current) clearInterval(jobPollRef.current)
-      const startedAt = Date.now()
       jobPollRef.current = setInterval(async () => {
         const jobRes = await getJobQueueJob(jobId)
         if (!jobRes.success) return
@@ -267,31 +290,45 @@ export default function CourseLobby() {
         if (job.status === 'completed') {
           clearInterval(jobPollRef.current)
           jobPollRef.current = null
-          setActiveJobId(null)
-          setJobStatus(null)
-
           const questions = job?.result?.questions || []
           const mid = job?.result?.meta?.materialId
-          if (mid != null && mid !== '') {
-            setDraftMaterialId(String(mid))
+          completionPayloadRef.current = {
+            questions,
+            materialId: mid != null && mid !== '' ? String(mid) : null,
           }
-          setGeneratedQuestions(questions)
-          // Questions are now saved by the worker; keep review optional.
-          // Default UX: refresh the page data and notify.
-          setIsReviewing(false)
-          setIsGenerating(false)
-          if (questions.length > 0) {
-            showToast('success', 'Quiz is ready and saved. You can leave this page anytime.')
-            const localToday = new Date().toLocaleDateString('en-CA')
-            const data = await fetchCoursePageData(courseId, localToday)
-            if (data) {
-              setStats(data.stats)
-              setMaterials(data.materials)
-              setTopicDue(data.topicDue)
+
+          // Intentionally keep the game running a bit longer so the HUD can
+          // "sync" to the process and finish 85%→100%.
+          const doneAt = Date.now()
+          setCompletionStartedAt(doneAt)
+
+          if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current)
+          completionTimeoutRef.current = setTimeout(async () => {
+            const payload = completionPayloadRef.current
+            completionPayloadRef.current = null
+            setCompletionStartedAt(null)
+
+            setActiveJobId(null)
+            setJobStatus(null)
+            setIsReviewing(false)
+            setIsGenerating(false)
+
+            if (payload?.materialId) setDraftMaterialId(payload.materialId)
+            setGeneratedQuestions(payload?.questions || [])
+
+            if ((payload?.questions || []).length > 0) {
+              showToast('success', 'Quiz is ready and saved. You can leave this page anytime.')
+              const localToday = new Date().toLocaleDateString('en-CA')
+              const data = await fetchCoursePageData(courseId, localToday)
+              if (data) {
+                setStats(data.stats)
+                setMaterials(data.materials)
+                setTopicDue(data.topicDue)
+              }
+            } else {
+              showToast('error', 'Job finished but no questions were returned. Try another PDF or retry.')
             }
-          } else {
-            showToast('error', 'Job finished but no questions were returned. Try another PDF or retry.')
-          }
+          }, 15000)
         }
 
         if (job.status === 'failed') {
@@ -305,7 +342,7 @@ export default function CourseLobby() {
 
         // One-time hint: usually means the VPS worker is not running or env is wrong
         if (
-          Date.now() - startedAt > 90000 &&
+          Date.now() - (jobStartedAtRef.current ?? Date.now()) > 90000 &&
           job.status === 'pending' &&
           !longWaitNotifiedRef.current
         ) {
@@ -329,6 +366,60 @@ export default function CourseLobby() {
     }
   };
 
+  const processingHud = (() => {
+    if (!isGenerating) return null
+    void hudNow
+    const started = jobStartedAtRef.current ?? jobStartedAt ?? Date.now()
+    const elapsedS = Math.max(0, (Date.now() - started) / 1000)
+
+    // Best-effort model (we don't have real granular progress from worker):
+    // - pending: quick ramp to 12% over ~18s
+    // - processing: ramp 12%→95% over ~70s
+    // - then hold near 95% until completion
+    const pendingCap = 0.12
+    const pendingDur = 18
+    const procDur = 70
+    let p = 0.02
+    let eta = undefined
+    const phase = completionStartedAt != null ? 'finalizing' : (jobStatus || 'queued')
+
+    // When the worker finishes, we intentionally animate 85%→100% over 15s.
+    if (completionStartedAt != null) {
+      const t = Math.max(0, (Date.now() - completionStartedAt) / 1000)
+      const pFinal = Math.min(1, 0.85 + (t / 15) * 0.15)
+      const etaFinal = Math.max(0, 15 - t)
+      return {
+        progress: pFinal,
+        phaseLabel: phase,
+        etaSeconds: etaFinal,
+      }
+    }
+
+    if (phase === 'pending' || phase === 'queued') {
+      p = Math.min(pendingCap, 0.02 + (elapsedS / pendingDur) * (pendingCap - 0.02))
+      eta = Math.max(0, pendingDur - elapsedS) + procDur
+    } else if (phase === 'processing') {
+      const t = Math.max(0, elapsedS - pendingDur)
+      p = Math.min(0.95, pendingCap + (t / procDur) * (0.95 - pendingCap))
+      eta = Math.max(0, procDur - t)
+    } else {
+      // Unknown: keep it moving but conservative.
+      p = Math.min(0.95, 0.15 + (elapsedS / 120) * 0.8)
+    }
+
+    // Gentle “breathing” near the end so it doesn't look frozen.
+    if (p >= 0.94) {
+      const wobble = (Math.sin(Date.now() / 520) + 1) / 2 // 0..1
+      p = 0.94 + wobble * 0.01
+    }
+
+    return {
+      progress: Math.max(0, Math.min(0.99, p)),
+      phaseLabel: phase,
+      etaSeconds: typeof eta === 'number' ? eta : undefined,
+    }
+  })()
+
   const handleRetryJob = async () => {
     if (!activeJobId) return
     const res = await retryJobQueueJob(activeJobId)
@@ -341,8 +432,8 @@ export default function CourseLobby() {
     setJobStatus('pending')
   }
 
-  if (loading) return <div className="p-12 text-center text-gray-500 font-inter">Loading course data...</div>
-  if (!course) return <div className="p-12 text-center font-inter">Course not found.</div>
+  if (loading) return <div className="p-12 text-center text-gray-500 dark:text-gray-400 font-inter">Loading course data...</div>
+  if (!course) return <div className="p-12 text-center text-gray-700 dark:text-gray-300 font-inter">Course not found.</div>
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-8">
@@ -350,14 +441,14 @@ export default function CourseLobby() {
       {/* Toast Notification */}
       {toast && (
         <div className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-xl shadow-lg border backdrop-blur-sm transition-all animate-[slideIn_0.3s_ease-out] ${toast.type === 'success'
-            ? 'bg-green-50/95 border-green-200 text-green-800'
-            : 'bg-red-50/95 border-red-200 text-red-800'
+            ? 'bg-green-50/95 border-green-200 text-green-800 dark:bg-green-500/10 dark:border-green-500/30 dark:text-green-200'
+            : 'bg-red-50/95 border-red-200 text-red-800 dark:bg-red-500/10 dark:border-red-500/30 dark:text-red-200'
           }`}>
           <span className="text-lg">{toast.type === 'success' ? '✅' : '❌'}</span>
           <p className="text-sm font-medium max-w-xs">{toast.message}</p>
           <button
             onClick={() => setToast(null)}
-            className="ml-2 text-gray-400 hover:text-gray-600 transition-colors"
+            className="ml-2 text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -367,14 +458,14 @@ export default function CourseLobby() {
       )}
 
       {/* Breadcrumb */}
-      <div className="flex items-center font-inter text-sm text-gray-500">
-        <Link href="/dashboard/student" className="hover:text-blue-600">Dashboard</Link>
+      <div className="flex items-center font-inter text-sm text-gray-500 dark:text-gray-400">
+        <Link href="/dashboard/student" className="hover:text-blue-600 dark:hover:text-indigo-300">Dashboard</Link>
         <span className="mx-2">/</span>
-        <span className="text-gray-900 font-medium">{course.course_name}</span>
+        <span className="text-gray-900 dark:text-gray-100 font-medium">{course.course_name}</span>
       </div>
 
       {/* Hero Header with Editable Name */}
-      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden">
+      <div className="brand-card p-8 relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-600 to-violet-500"></div>
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div>
@@ -386,7 +477,7 @@ export default function CourseLobby() {
                   onChange={(e) => setEditedName(e.target.value)}
                   onKeyDown={handleNameKeyDown}
                   autoFocus
-                  className="text-3xl font-bold text-gray-900 border-b-2 border-indigo-500 bg-transparent outline-none pb-1 pr-2"
+                  className="text-3xl font-bold text-gray-900 dark:text-gray-100 border-b-2 border-indigo-500 bg-transparent outline-none pb-1 pr-2"
                 />
                 <button
                   onClick={handleSaveName}
@@ -400,7 +491,7 @@ export default function CourseLobby() {
                 </button>
                 <button
                   onClick={() => { setIsEditingName(false); setEditedName(course.course_name); }}
-                  className="p-1.5 bg-gray-100 text-gray-500 rounded-lg hover:bg-gray-200 transition-colors"
+                  className="p-1.5 bg-gray-100 text-gray-500 rounded-lg hover:bg-gray-200 transition-colors dark:bg-white/10 dark:text-gray-300 dark:hover:bg-white/15"
                   title="Cancel"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -410,10 +501,10 @@ export default function CourseLobby() {
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <h1 className="text-3xl font-bold text-gray-900">{course.course_name}</h1>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{course.course_name}</h1>
                 <button
                   onClick={() => setIsEditingName(true)}
-                  className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                  className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors dark:hover:bg-indigo-500/10 dark:hover:text-indigo-200"
                   title="Edit course name"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -422,7 +513,7 @@ export default function CourseLobby() {
                 </button>
               </div>
             )}
-            <p className="text-gray-500 text-sm mt-1">Your personal study space</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Your personal study space</p>
           </div>
           {stats.due > 0 ? (
             <Link
@@ -436,7 +527,7 @@ export default function CourseLobby() {
               <span>Review {course.course_name} ({stats.due} Due)</span>
             </Link>
           ) : (
-            <div className="inline-flex items-center justify-center bg-green-100 text-green-700 font-bold py-3 px-8 rounded-full">
+            <div className="inline-flex items-center justify-center bg-green-100 text-green-700 font-bold py-3 px-8 rounded-full dark:bg-green-500/10 dark:text-green-200 dark:border dark:border-green-500/30">
               <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
@@ -448,39 +539,39 @@ export default function CourseLobby() {
 
       {/* Progress Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-blue-50 p-6 rounded-xl border border-blue-100 flex flex-col items-center">
-          <h3 className="text-blue-800 font-semibold mb-1 text-sm uppercase tracking-wide">Total Questions</h3>
-          <p className="text-4xl font-black text-blue-900">{stats.total}</p>
+        <div className="bg-blue-50 dark:bg-blue-500/10 p-6 rounded-xl border border-blue-100 dark:border-blue-500/20 flex flex-col items-center">
+          <h3 className="text-blue-800 dark:text-blue-200 font-semibold mb-1 text-sm uppercase tracking-wide">Total Questions</h3>
+          <p className="text-4xl font-black text-blue-900 dark:text-blue-100">{stats.total}</p>
         </div>
-        <div className="bg-green-50 p-6 rounded-xl border border-green-100 flex flex-col items-center">
-          <h3 className="text-green-800 font-semibold mb-1 text-sm uppercase tracking-wide">Mastered</h3>
-          <p className="text-4xl font-black text-green-900">{stats.mastered}</p>
-          <p className="text-xs text-green-700 mt-2">Long-term Memory</p>
+        <div className="bg-green-50 dark:bg-green-500/10 p-6 rounded-xl border border-green-100 dark:border-green-500/20 flex flex-col items-center">
+          <h3 className="text-green-800 dark:text-green-200 font-semibold mb-1 text-sm uppercase tracking-wide">Mastered</h3>
+          <p className="text-4xl font-black text-green-900 dark:text-green-100">{stats.mastered}</p>
+          <p className="text-xs text-green-700 dark:text-green-200/80 mt-2">Long-term Memory</p>
         </div>
-        <div className="bg-orange-50 p-6 rounded-xl border border-orange-100 flex flex-col items-center">
-          <h3 className="text-orange-800 font-semibold mb-1 text-sm uppercase tracking-wide">Due for Review</h3>
-          <p className="text-4xl font-black text-orange-900">{stats.due}</p>
-          <p className="text-xs text-orange-700 mt-2">Needs Attention</p>
+        <div className="bg-orange-50 dark:bg-orange-500/10 p-6 rounded-xl border border-orange-100 dark:border-orange-500/20 flex flex-col items-center">
+          <h3 className="text-orange-800 dark:text-orange-200 font-semibold mb-1 text-sm uppercase tracking-wide">Due for Review</h3>
+          <p className="text-4xl font-black text-orange-900 dark:text-orange-100">{stats.due}</p>
+          <p className="text-xs text-orange-700 dark:text-orange-200/80 mt-2">Needs Attention</p>
         </div>
       </div>
 
       {/* Topics Section */}
       <div>
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-gray-900">Topics</h2>
-          <span className="text-sm text-gray-500 font-inter">{materials.length} topic{materials.length !== 1 ? 's' : ''}</span>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Topics</h2>
+          <span className="text-sm text-gray-500 dark:text-gray-400 font-inter">{materials.length} topic{materials.length !== 1 ? 's' : ''}</span>
         </div>
 
         {materials.length > 0 ? (
           <div className="space-y-5 mb-8">
             {materials.map((mat) => (
-              <div key={`topic-${mat.id}`} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all">
+              <div key={`topic-${mat.id}`} className="brand-card overflow-hidden hover:shadow-md transition-all">
                 <div className="h-1.5 bg-gradient-to-r from-indigo-500 to-violet-400"></div>
                 <div className="p-6">
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-xl font-bold text-gray-900">{mat.topic_name}</h3>
-                      <div className="flex items-center gap-3 mt-1 text-sm text-gray-400">
+                      <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">{mat.topic_name}</h3>
+                      <div className="flex items-center gap-3 mt-1 text-sm text-gray-400 dark:text-gray-400">
                         <span className="flex items-center gap-1">
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                           {mat.question_count} questions
@@ -521,7 +612,7 @@ export default function CourseLobby() {
 
                     <Link
                       href={`/dashboard/student/course/${courseId}/topic/${mat.id}`}
-                      className="inline-flex items-center gap-2 py-2.5 px-4 text-sm font-medium text-gray-700 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
+                      className="inline-flex items-center gap-2 py-2.5 px-4 text-sm font-medium text-gray-700 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors dark:text-gray-200 dark:bg-white/10 dark:hover:bg-white/15"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -535,8 +626,8 @@ export default function CourseLobby() {
             ))}
           </div>
         ) : (
-          <div className="py-8 text-center bg-gray-50 rounded-lg border border-gray-200 border-dashed mb-8">
-            <p className="text-gray-500">No topics yet. Upload a PDF below to create your first topic!</p>
+          <div className="py-8 text-center bg-gray-50 dark:bg-white/5 rounded-lg border border-gray-200 dark:border-white/10 border-dashed mb-8">
+            <p className="text-gray-500 dark:text-gray-400">No topics yet. Upload a PDF below to create your first topic!</p>
           </div>
         )}
       </div>
@@ -545,31 +636,31 @@ export default function CourseLobby() {
       <div>
         {isReviewing ? (
           <div className="space-y-6">
-            <div className="p-5 rounded-xl shadow-sm border border-yellow-200 bg-yellow-50">
+            <div className="p-5 rounded-xl shadow-sm border border-yellow-200 bg-yellow-50 dark:bg-yellow-500/10 dark:border-yellow-500/30">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
                 <div>
-                  <h2 className="text-xl font-bold font-poppins text-gray-800">Create New Topic</h2>
-                  <p className="text-sm font-inter text-gray-800/75">Name your topic and review the generated questions before saving.</p>
+                  <h2 className="text-xl font-bold font-poppins text-gray-800 dark:text-gray-100">Create New Topic</h2>
+                  <p className="text-sm font-inter text-gray-800/75 dark:text-gray-300">Name your topic and review the generated questions before saving.</p>
                 </div>
                 <div className="space-x-2 flex">
-                  <button onClick={() => { setIsReviewing(false); setTopicName(''); }} className="text-gray-700 hover:text-gray-900 px-3 py-1 font-medium">Discard</button>
+                  <button onClick={() => { setIsReviewing(false); setTopicName(''); }} className="text-gray-700 hover:text-gray-900 px-3 py-1 font-medium dark:text-gray-200 dark:hover:text-gray-50">Discard</button>
                   <button onClick={handlePublish} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 font-medium shadow-sm">Save Topic &amp; Questions</button>
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Topic Name</label>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">Topic Name</label>
                 <input
                   type="text"
                   value={topicName}
                   onChange={(e) => setTopicName(e.target.value)}
                   placeholder="e.g. Chapter 1: Introduction to Biology"
-                  className="w-full p-3 border border-yellow-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-medium text-gray-800"
+                  className="w-full p-3 border border-yellow-300 dark:border-yellow-500/40 rounded-lg bg-white dark:bg-white/5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-medium text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
                 />
               </div>
             </div>
 
             {generatedQuestions.map((q, qIndex) => (
-              <div key={`new-q-${qIndex}`} className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+              <div key={`new-q-${qIndex}`} className="bg-white dark:bg-white/5 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-white/10">
                 <div className="flex justify-between mb-3">
                   <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-bold uppercase rounded">Q{qIndex + 1}</span>
                   <button onClick={() => handleReviewDelete(qIndex)} className="text-red-400 hover:text-red-600">
@@ -581,7 +672,7 @@ export default function CourseLobby() {
                 <textarea
                   value={q.question_text}
                   onChange={(e) => handleReviewEdit(qIndex, 'question_text', e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 font-medium text-gray-800 mb-4"
+                  className="w-full p-3 border border-gray-300 dark:border-white/10 rounded-md focus:ring-2 focus:ring-indigo-500 font-medium text-gray-800 dark:text-gray-100 bg-white dark:bg-white/5 mb-4"
                   rows={2}
                 />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -598,7 +689,7 @@ export default function CourseLobby() {
                         type="text"
                         value={choice}
                         onChange={(e) => handleReviewChoiceEdit(qIndex, cIndex, e.target.value)}
-                        className={`w-full p-2 border rounded-md text-sm ${q.correct_answer === choice ? 'border-green-500 bg-green-50 ring-1 ring-green-500 text-green-900' : 'border-gray-300 text-gray-700'}`}
+                        className={`w-full p-2 border rounded-md text-sm bg-white dark:bg-white/5 dark:text-gray-100 dark:border-white/10 ${q.correct_answer === choice ? 'border-green-500 bg-green-50 ring-1 ring-green-500 text-green-900 dark:bg-green-500/10 dark:text-green-200' : 'border-gray-300 text-gray-700'}`}
                       />
                     </div>
                   ))}
@@ -607,56 +698,79 @@ export default function CourseLobby() {
             ))}
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-            <div className="p-4 border-b border-gray-200"><h2 className="text-lg font-bold font-poppins text-gray-800">Add New Topic</h2></div>
+          <div className="brand-surface rounded-lg shadow-sm border brand-border">
+            <div className="p-4 border-b brand-border"><h2 className="text-lg font-bold font-poppins text-gray-800 dark:text-gray-100">Add New Topic</h2></div>
             <div className="p-8">
               {isGenerating ? (
-                <div className="text-center p-12 space-y-3">
-                  <div className="max-w-4xl mx-auto h-[360px] mb-5">
-                    <CriticalMassGame status="polling" />
+                <div className="text-center p-6 sm:p-10 space-y-3">
+                  <div className="mx-auto w-full max-w-[520px] h-[420px] sm:h-[440px] md:h-[360px] mb-3">
+                    <CriticalMassGame
+                      status="polling"
+                      progress={processingHud?.progress}
+                      phaseLabel={processingHud?.phaseLabel}
+                      etaSeconds={processingHud?.etaSeconds}
+                      showHint={false}
+                    />
                   </div>
-                  <p className="text-gray-800 font-inter font-semibold">
-                    Generating questions…
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Tap during vibration for <span className="font-semibold text-indigo-600 dark:text-indigo-300">Perfect</span> flip
                   </p>
-                  <p className="text-gray-600 text-sm">
-                    Status:{' '}
-                    <span className="font-medium">{jobStatus || 'queued'}</span>
-                    {activeJobId != null ? (
-                      <span className="text-gray-500">
-                        {' '}
-                        · job #{activeJobId} · attempts {jobAttempts}
-                      </span>
-                    ) : null}
+                  <p className="text-gray-800 dark:text-gray-100 font-inter font-semibold">
+                    Generating questions…
                   </p>
                   {jobLastError ? (
                     <p className="text-sm text-red-600 max-w-md mx-auto">{jobLastError}</p>
                   ) : null}
-                  <p className="text-xs text-gray-500 max-w-md mx-auto">
-                    If status stays <span className="font-medium">pending</span> for a long time,
-                    no background worker is consuming the queue. On the machine running the worker,
-                    use <span className="font-mono">worker/.env.local</span> with{' '}
-                    <span className="font-mono">SUPABASE_SERVICE_ROLE_KEY</span>,{' '}
-                    <span className="font-mono">GOOGLE_GENERATIVE_AI_API_KEY</span>, and{' '}
-                    <span className="font-mono">SUPABASE_URL</span> or{' '}
-                    <span className="font-mono">NEXT_PUBLIC_SUPABASE_URL</span>.
-                  </p>
                   <button
                     onClick={handleRetryJob}
                     disabled={!activeJobId}
-                    className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium border bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium border bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/10 dark:text-gray-100"
                   >
                     Retry
                   </button>
                 </div>
               ) : (
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-blue-500 hover:bg-blue-50 transition cursor-pointer relative">
-                  <input type="file" accept=".pdf" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])} />
-                  <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                  </svg>
-                  <p className="mt-2 font-inter text-gray-600"><span className="font-medium text-blue-600">Upload a PDF</span> to create a new topic</p>
-                  <p className="text-sm font-inter text-gray-400 mt-1">AI will auto-generate 20 multiple-choice questions from your material (Max 4.5MB)</p>
-                </div>
+                <>
+                  {pdfToSelect ? (
+                    <div className="space-y-4">
+                      <PdfPageSelector
+                        initialFile={pdfToSelect}
+                        onExtract={(newFile) => {
+                          setPdfToSelect(null)
+                          handleFileUpload(newFile)
+                        }}
+                        className="text-left"
+                      />
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setPdfToSelect(null)}
+                          className="inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium border bg-white hover:bg-gray-50 dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/10 dark:text-gray-100"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-gray-300 dark:border-white/15 rounded-lg p-12 text-center hover:border-blue-500 dark:hover:border-indigo-400/40 hover:bg-blue-50 dark:hover:bg-indigo-500/10 transition cursor-pointer relative">
+                      <input
+                        type="file"
+                        accept=".pdf"
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0]
+                          if (f) setPdfToSelect(f)
+                          e.currentTarget.value = ''
+                        }}
+                      />
+                      <svg className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      <p className="mt-2 font-inter text-gray-600 dark:text-gray-300"><span className="font-medium text-blue-600 dark:text-indigo-300">Upload a PDF</span> to choose pages</p>
+                      <p className="text-sm font-inter text-gray-400 dark:text-gray-400 mt-1">You’ll pick the exact pages to analyze before we generate questions.</p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>

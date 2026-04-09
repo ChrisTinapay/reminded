@@ -95,23 +95,23 @@ export default function ProfilePage() {
     };
 
     if (loading) {
-        return <div className="p-8 text-center text-gray-500 font-inter">Loading profile data...</div>;
+        return <div className="p-8 text-center text-gray-500 dark:text-gray-400 font-inter">Loading profile data...</div>;
     }
 
     return (
         <div>
             <div className="flex items-center justify-between mb-8">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800 font-poppins">Profile</h1>
-                    <p className="text-gray-500 font-inter text-sm">
+                    <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 font-poppins">Profile</h1>
+                    <p className="text-gray-500 dark:text-gray-400 font-inter text-sm">
                         Manage your personal information and preferences.
                     </p>
                 </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 max-w-2xl">
+            <div className="brand-surface rounded-lg shadow-sm border brand-border p-8 max-w-2xl">
                 {message.text && (
-                    <div className={`mb-6 p-4 rounded-md text-sm font-medium ${message.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
+                    <div className={`mb-6 p-4 rounded-md text-sm font-medium ${message.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200 dark:bg-green-500/10 dark:text-green-200 dark:border-green-500/30' : 'bg-red-50 text-red-800 border border-red-200 dark:bg-red-500/10 dark:text-red-200 dark:border-red-500/30'}`}>
                         {message.text}
                     </div>
                 )}
@@ -119,23 +119,23 @@ export default function ProfilePage() {
                 <form className="space-y-6" onSubmit={handleSaveProfile}>
                     {/* Email (Read Only) */}
                     <div>
-                        <label className="block text-sm font-bold font-inter text-gray-700 leading-6">
+                        <label className="block text-sm font-bold font-inter text-gray-700 dark:text-gray-200 leading-6">
                             Email Address
                         </label>
                         <input
                             type="email"
                             value={email}
                             disabled
-                            className="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-gray-500 font-medium font-inter shadow-sm cursor-not-allowed"
+                            className="mt-1 block w-full px-3 py-2 brand-input-disabled rounded-md font-medium font-inter shadow-sm"
                         />
-                        <p className="mt-1 text-xs text-gray-500 font-inter">Your email cannot be changed.</p>
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 font-inter">Your email cannot be changed.</p>
                     </div>
 
                     {/* Username */}
                     <div>
-                        <label htmlFor="fullName" className="flex items-center text-sm font-bold font-inter text-gray-700 leading-6">
+                        <label htmlFor="fullName" className="flex items-center text-sm font-bold font-inter text-gray-700 dark:text-gray-200 leading-6">
                             Username
-                            <svg className="w-4 h-4 ml-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                            <svg className="w-4 h-4 ml-2 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                         </label>
                         <input
                             id="fullName"
@@ -143,24 +143,24 @@ export default function ProfilePage() {
                             required
                             value={fullName}
                             onChange={(e) => setFullName(e.target.value)}
-                            className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 font-medium font-inter shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="mt-1 block w-full px-3 py-2 brand-input font-medium font-inter"
                         />
                     </div>
 
-                    <hr className="border-gray-200" />
+                    <hr className="brand-border" />
 
                     {/* Academic Level */}
                     <div>
-                        <label htmlFor="academicLevel" className="flex items-center text-sm font-bold font-inter text-gray-700 leading-6">
+                        <label htmlFor="academicLevel" className="flex items-center text-sm font-bold font-inter text-gray-700 dark:text-gray-200 leading-6">
                             Academic Level
-                            <svg className="w-4 h-4 ml-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                            <svg className="w-4 h-4 ml-2 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                         </label>
                         <select
                             id="academicLevel"
                             required
                             value={academicLevelId}
                             onChange={(e) => setAcademicLevelId(e.target.value)}
-                            className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 font-medium font-inter shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="mt-1 block w-full px-3 py-2 brand-input font-medium font-inter"
                         >
                             <option value="">Select your level...</option>
                             {levelsList.map((level) => (
@@ -173,9 +173,9 @@ export default function ProfilePage() {
 
                     {/* Program/Course */}
                     <div>
-                        <label htmlFor="program" className="flex items-center text-sm font-bold font-inter text-gray-700 leading-6">
+                        <label htmlFor="program" className="flex items-center text-sm font-bold font-inter text-gray-700 dark:text-gray-200 leading-6">
                             Program / Strand
-                            <svg className="w-4 h-4 ml-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                            <svg className="w-4 h-4 ml-2 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                         </label>
                         <input
                             id="program"
@@ -184,11 +184,11 @@ export default function ProfilePage() {
                             placeholder="e.g. BS Computer Science"
                             value={programId}
                             onChange={(e) => setProgramId(e.target.value)}
-                            className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 font-medium font-inter shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="mt-1 block w-full px-3 py-2 brand-input font-medium font-inter"
                         />
                     </div>
 
-                    <div className="pt-4 border-t border-gray-200 flex justify-end">
+                    <div className="pt-4 border-t brand-border flex justify-end">
                         <button
                             type="submit"
                             disabled={saving}

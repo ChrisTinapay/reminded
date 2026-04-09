@@ -103,16 +103,16 @@ export default function StudyCalendar({ schedule = {} }) {
     const selectedInfo = selectedDate ? schedule[selectedDate] : null;
 
     return (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="brand-card overflow-hidden">
             {/* Calendar Header */}
             <div className="px-6 pt-5 pb-3 flex items-center justify-between">
                 <div>
-                    <h2 className="text-lg font-bold text-gray-900">Study Calendar</h2>
-                    <p className="text-xs text-gray-400 mt-0.5">Your spaced repetition schedule</p>
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Study Calendar</h2>
+                    <p className="text-xs text-gray-400 dark:text-gray-400 mt-0.5">Your spaced repetition schedule</p>
                 </div>
                 <button
                     onClick={goToToday}
-                    className="text-xs font-medium text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-full transition-colors"
+                    className="text-xs font-medium text-indigo-700 dark:text-indigo-200 hover:text-indigo-900 dark:hover:text-indigo-100 bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/15 px-3 py-1.5 rounded-full transition-colors"
                 >
                     Today
                 </button>
@@ -123,19 +123,19 @@ export default function StudyCalendar({ schedule = {} }) {
                 <button
                     onClick={goToPrev}
                     disabled={!canGoPrev}
-                    className={`p-1.5 rounded-lg transition-colors ${canGoPrev ? 'hover:bg-gray-100 text-gray-600' : 'text-gray-200 cursor-not-allowed'}`}
+                    className={`p-1.5 rounded-lg transition-colors ${canGoPrev ? 'hover:bg-gray-100 dark:hover:bg-white/5 text-gray-600 dark:text-gray-300' : 'text-gray-200 dark:text-white/15 cursor-not-allowed'}`}
                 >
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                     </svg>
                 </button>
-                <span className="text-sm font-semibold text-gray-800">
+                <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
                     {MONTH_NAMES[currentMonth]} {currentYear}
                 </span>
                 <button
                     onClick={goToNext}
                     disabled={!canGoNext}
-                    className={`p-1.5 rounded-lg transition-colors ${canGoNext ? 'hover:bg-gray-100 text-gray-600' : 'text-gray-200 cursor-not-allowed'}`}
+                    className={`p-1.5 rounded-lg transition-colors ${canGoNext ? 'hover:bg-gray-100 dark:hover:bg-white/5 text-gray-600 dark:text-gray-300' : 'text-gray-200 dark:text-white/15 cursor-not-allowed'}`}
                 >
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -146,7 +146,7 @@ export default function StudyCalendar({ schedule = {} }) {
             {/* Day Labels */}
             <div className="grid grid-cols-7 px-4">
                 {DAY_LABELS.map((label) => (
-                    <div key={label} className="text-center text-xs font-semibold text-gray-400 py-2">
+                    <div key={label} className="text-center text-xs font-semibold text-gray-400 dark:text-gray-400 py-2">
                         {label}
                     </div>
                 ))}
@@ -171,11 +171,11 @@ export default function StudyCalendar({ schedule = {} }) {
                             onClick={() => setSelectedDate(isSelected ? null : dateKey)}
                             className={`
                 relative h-10 rounded-lg text-sm font-medium transition-all duration-150 flex flex-col items-center justify-center
-                ${isToday && !isSelected ? 'ring-2 ring-indigo-500 ring-offset-1' : ''}
+                ${isToday && !isSelected ? 'ring-2 ring-indigo-500 ring-offset-1 ring-offset-white dark:ring-offset-neutral-900' : ''}
                 ${isSelected ? 'bg-indigo-600 text-white shadow-md scale-105' : ''}
                 ${!isSelected && info ? getIntensityColor(info.totalQuestions) + ' hover:scale-105' : ''}
-                ${!isSelected && !info && !isPast ? 'text-gray-700 hover:bg-gray-50' : ''}
-                ${!isSelected && !info && isPast ? 'text-gray-300' : ''}
+                ${!isSelected && !info && !isPast ? 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/5' : ''}
+                ${!isSelected && !info && isPast ? 'text-gray-300 dark:text-white/20' : ''}
               `}
                         >
                             <span className="leading-none">{day}</span>
@@ -191,7 +191,7 @@ export default function StudyCalendar({ schedule = {} }) {
             </div>
 
             {/* Legend */}
-            <div className="px-6 pb-3 flex items-center gap-4 text-xs text-gray-400 border-t border-gray-100 pt-3">
+            <div className="px-6 pb-3 flex items-center gap-4 text-xs text-gray-400 dark:text-gray-400 border-t border-gray-100 dark:border-white/10 pt-3">
                 <div className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-blue-500" />
                     Light (1–5)
@@ -208,9 +208,9 @@ export default function StudyCalendar({ schedule = {} }) {
 
             {/* Selected Day Details */}
             {selectedDate && (
-                <div className="border-t border-gray-100 px-6 py-4 bg-gray-50/50">
+                <div className="border-t border-gray-100 dark:border-white/10 px-6 py-4 bg-gray-50/50 dark:bg-white/5">
                     <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-bold text-gray-800">
+                        <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">
                             {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', {
                                 weekday: 'long',
                                 month: 'long',
@@ -218,7 +218,7 @@ export default function StudyCalendar({ schedule = {} }) {
                             })}
                         </h3>
                         {selectedDate === todayKey && (
-                            <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">Today</span>
+                            <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-200 bg-indigo-50 dark:bg-indigo-500/10 px-2 py-0.5 rounded-full">Today</span>
                         )}
                     </div>
 
@@ -229,11 +229,11 @@ export default function StudyCalendar({ schedule = {} }) {
                                 return (
                                     <div
                                         key={`sched-${item.course_id}-${item.material_id}-${i}`}
-                                        className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200 hover:border-indigo-200 transition-colors"
+                                        className="flex items-center justify-between bg-white dark:bg-white/5 p-3 rounded-lg border border-gray-200 dark:border-white/10 hover:border-indigo-200 dark:hover:border-indigo-400/40 transition-colors"
                                     >
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-semibold text-gray-800 truncate">{item.topic_name}</p>
-                                            <p className="text-xs text-gray-400 truncate">{item.course_name}</p>
+                                            <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">{item.topic_name}</p>
+                                            <p className="text-xs text-gray-400 dark:text-gray-400 truncate">{item.course_name}</p>
                                         </div>
                                         <div className="flex items-center gap-3 ml-3 flex-shrink-0">
                                             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${item.question_count <= 5 ? 'bg-blue-100 text-blue-700' :
@@ -250,7 +250,7 @@ export default function StudyCalendar({ schedule = {} }) {
                                                     Review ({item.question_count} due)
                                                 </Link>
                                             ) : (
-                                                <span className="text-xs font-medium text-gray-400 bg-gray-100 px-3 py-1.5 rounded-lg">
+                                                <span className="text-xs font-medium text-gray-400 dark:text-gray-400 bg-gray-100 dark:bg-white/10 px-3 py-1.5 rounded-lg">
                                                     Upcoming
                                                 </span>
                                             )}
@@ -261,8 +261,8 @@ export default function StudyCalendar({ schedule = {} }) {
                         </div>
                     ) : (
                         <div className="text-center py-4">
-                            <p className="text-sm text-gray-400">No reviews scheduled for this day</p>
-                            <p className="text-xs text-gray-300 mt-1">Keep studying to build your schedule!</p>
+                            <p className="text-sm text-gray-400 dark:text-gray-400">No reviews scheduled for this day</p>
+                            <p className="text-xs text-gray-300 dark:text-gray-500 mt-1">Keep studying to build your schedule!</p>
                         </div>
                     )}
                 </div>

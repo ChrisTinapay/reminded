@@ -53,7 +53,7 @@ export default function Header() {
   return (
     <>
       {/* Desktop Header */}
-      <header className="hidden md:flex items-center justify-between p-6 self-stretch brand-background border-b border-gray-200">
+      <header className="hidden md:flex items-center justify-between p-6 self-stretch brand-background border-b brand-border">
         <div className="flex items-center gap-3">
           {avatarUrl && (
             // eslint-disable-next-line @next/next/no-img-element
@@ -61,7 +61,7 @@ export default function Header() {
               src={avatarUrl}
               alt="Profile"
               referrerPolicy="no-referrer"
-              className="w-10 h-10 rounded-full border-2 border-indigo-200 shadow-sm"
+              className="w-10 h-10 rounded-full border-2 border-indigo-200/80 dark:border-indigo-400/30 shadow-sm"
             />
           )}
           {fullName && (
@@ -77,7 +77,7 @@ export default function Header() {
       </header>
 
       {/* Mobile Header */}
-      <header className="md:hidden flex items-center justify-between px-4 py-3 brand-background border-b border-gray-200">
+      <header className="md:hidden flex items-center justify-between px-4 py-3 brand-background border-b brand-border">
         <div className="flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -97,7 +97,7 @@ export default function Header() {
               src={avatarUrl}
               alt="Profile"
               referrerPolicy="no-referrer"
-              className="w-8 h-8 rounded-full border-2 border-indigo-200 shadow-sm"
+              className="w-8 h-8 rounded-full border-2 border-indigo-200/80 dark:border-indigo-400/30 shadow-sm"
             />
           )}
         </div>

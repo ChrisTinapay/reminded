@@ -11,6 +11,16 @@ const DashboardIcon = () => (
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18M3 6h18M3 18h18" />
   </svg>
 );
+const CalendarIcon = () => (
+  <svg className="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M8 7V5m8 2V5M7 11h10M6 21h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+    />
+  </svg>
+);
 const ProfileIcon = () => (
   <svg className="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -29,8 +39,8 @@ function NavLink({ href, icon, text, active, collapsed }) {
       href={href}
       className={`flex items-center gap-3 py-2.5 rounded-lg transition-all duration-200 ${collapsed ? 'justify-center px-2' : 'px-3'
         } ${active
-          ? 'bg-indigo-50 text-indigo-700 font-semibold'
-          : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+          ? 'bg-indigo-50 text-indigo-700 font-semibold dark:bg-indigo-500/10 dark:text-indigo-200'
+          : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-gray-50'
         }`}
       title={collapsed ? text : undefined}
     >
@@ -108,6 +118,7 @@ export default function NavigationBar() {
 
   // Active page check
   const isDashboardActive = pathname === '/dashboard/student' || pathname === '/dashboard/student/';
+  const isCalendarActive = pathname.startsWith('/dashboard/student/calendar');
   const isProfileActive = pathname.startsWith('/dashboard/student/profile');
 
   return (
@@ -115,7 +126,7 @@ export default function NavigationBar() {
       {/* Desktop Sidebar */}
       <nav
         ref={sidebarRef}
-        className="hidden md:flex fixed top-0 left-0 h-screen flex-col items-stretch justify-start border-r border-gray-200 brand-background z-40"
+        className="hidden md:flex fixed top-0 left-0 h-screen flex-col items-stretch justify-start border-r brand-border brand-background z-40"
         style={{ width: `${sidebarWidth}px` }}
       >
         {/* Logo */}
@@ -135,6 +146,13 @@ export default function NavigationBar() {
             icon={<DashboardIcon />}
             text="Dashboard"
             active={isDashboardActive}
+            collapsed={isCollapsed}
+          />
+          <NavLink
+            href="/dashboard/student/calendar"
+            icon={<CalendarIcon />}
+            text="Calendar"
+            active={isCalendarActive}
             collapsed={isCollapsed}
           />
           <NavLink
@@ -172,7 +190,7 @@ export default function NavigationBar() {
       </nav>
 
       {/* Mobile Bottom Bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 z-40 flex h-16 w-full flex-row items-center justify-around border-t border-gray-200 brand-background">
+      <nav className="md:hidden fixed bottom-0 left-0 z-40 flex h-16 w-full flex-row items-center justify-around border-t brand-border brand-background">
         <Link
           href="/dashboard/student"
           className={`flex flex-col items-center justify-center py-2 px-4 rounded-md ${isDashboardActive ? 'text-indigo-600' : 'text-gray-600'
@@ -180,6 +198,14 @@ export default function NavigationBar() {
         >
           <DashboardIcon />
           <span className="text-xs font-inter">Dashboard</span>
+        </Link>
+        <Link
+          href="/dashboard/student/calendar"
+          className={`flex flex-col items-center justify-center py-2 px-4 rounded-md ${isCalendarActive ? 'text-indigo-600' : 'text-gray-600'
+            }`}
+        >
+          <CalendarIcon />
+          <span className="text-xs font-inter">Calendar</span>
         </Link>
         <Link
           href="/dashboard/student/profile"
