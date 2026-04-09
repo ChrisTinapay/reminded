@@ -189,7 +189,6 @@ export default function CourseLobby() {
           question_text: q.question_text,
           choices: q.choices,
           correct_answer: q.correct_answer,
-          bloom_level: q.bloom_level,
         });
       }
 
@@ -572,7 +571,7 @@ export default function CourseLobby() {
             {generatedQuestions.map((q, qIndex) => (
               <div key={`new-q-${qIndex}`} className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                 <div className="flex justify-between mb-3">
-                  <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-bold uppercase rounded">{q.bloom_level}</span>
+                  <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-bold uppercase rounded">Q{qIndex + 1}</span>
                   <button onClick={() => handleReviewDelete(qIndex)} className="text-red-400 hover:text-red-600">
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

@@ -63,7 +63,6 @@ create table if not exists public.questions (
   question_text text not null,
   choices jsonb not null,
   correct_answer text not null,
-  bloom_level text null,
   created_at timestamptz not null default now()
 );
 

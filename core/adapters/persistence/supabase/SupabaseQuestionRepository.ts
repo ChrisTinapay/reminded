@@ -16,7 +16,6 @@ export class SupabaseQuestionRepository implements QuestionRepository {
         question_text: question.text,
         choices: question.choices,
         correct_answer: question.correctAnswer,
-        bloom_level: question.bloomLevel ?? null,
       })
       .select("id")
       .single();
@@ -32,7 +31,6 @@ export class SupabaseQuestionRepository implements QuestionRepository {
         question_text: question.text,
         choices: question.choices,
         correct_answer: question.correctAnswer,
-        bloom_level: question.bloomLevel ?? null,
       })
       .eq("id", Number(question.id));
     if (error) throw error;
@@ -48,7 +46,7 @@ export class SupabaseQuestionRepository implements QuestionRepository {
     const supabase = createAdminClient();
     const { data, error } = await supabase
       .from("questions")
-      .select("id,course_id,material_id,question_text,choices,correct_answer,bloom_level")
+      .select("id,course_id,material_id,question_text,choices,correct_answer")
       .eq("course_id", Number(courseId))
       .order("created_at", { ascending: false });
     if (error) throw error;
@@ -59,7 +57,6 @@ export class SupabaseQuestionRepository implements QuestionRepository {
       text: row.question_text,
       choices: Array.isArray(row.choices) ? row.choices : [],
       correctAnswer: row.correct_answer,
-      bloomLevel: row.bloom_level ?? null,
     }));
   }
 
@@ -67,7 +64,7 @@ export class SupabaseQuestionRepository implements QuestionRepository {
     const supabase = createAdminClient();
     const { data, error } = await supabase
       .from("questions")
-      .select("id,course_id,material_id,question_text,choices,correct_answer,bloom_level")
+      .select("id,course_id,material_id,question_text,choices,correct_answer")
       .eq("material_id", Number(materialId))
       .order("created_at", { ascending: false });
     if (error) throw error;
@@ -78,7 +75,6 @@ export class SupabaseQuestionRepository implements QuestionRepository {
       text: row.question_text,
       choices: Array.isArray(row.choices) ? row.choices : [],
       correctAnswer: row.correct_answer,
-      bloomLevel: row.bloom_level ?? null,
     }));
   }
 }

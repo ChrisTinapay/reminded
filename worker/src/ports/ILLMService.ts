@@ -2,7 +2,6 @@ export type QuestionDraft = {
   question_text: string;
   choices: string[];
   correct_answer: string;
-  bloom_level: string;
 };
 
 export type LLMJobInput =

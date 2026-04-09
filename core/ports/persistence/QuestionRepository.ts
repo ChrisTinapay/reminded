@@ -7,7 +7,6 @@ export interface QuestionRecord {
   text: string;
   choices: string[];
   correctAnswer: string;
-  bloomLevel?: string | null;
 }
 
 export interface QuestionRepository {

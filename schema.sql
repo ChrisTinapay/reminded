@@ -45,7 +45,6 @@ CREATE TABLE IF NOT EXISTS questions (
   question_text TEXT NOT NULL,
   choices TEXT NOT NULL, -- Stored as JSON string '["A", "B", "C", "D"]'
   correct_answer TEXT NOT NULL,
-  bloom_level TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
   FOREIGN KEY (material_id) REFERENCES learning_materials(id) ON DELETE SET NULL

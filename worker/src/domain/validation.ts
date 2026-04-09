@@ -9,10 +9,9 @@ export function normalizeQuestions(raw: unknown): QuestionDraft[] {
     const question_text = typeof q?.question_text === "string" ? q.question_text.trim() : "";
     const choices = Array.isArray(q?.choices) ? q.choices.map((c: any) => String(c).trim()) : [];
     const correct_answer = typeof q?.correct_answer === "string" ? q.correct_answer.trim() : "";
-    const bloom_level = typeof q?.bloom_level === "string" ? q.bloom_level.trim() : "";
 
     if (!question_text || choices.length < 2 || !correct_answer) continue;
-    out.push({ question_text, choices, correct_answer, bloom_level });
+    out.push({ question_text, choices, correct_answer });
   }
 
   return out;

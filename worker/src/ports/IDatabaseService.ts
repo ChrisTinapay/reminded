@@ -18,7 +18,6 @@ export type JobResult = {
     question_text: string;
     choices: string[];
     correct_answer: string;
-    bloom_level: string;
   }>;
   meta?: Record<string, unknown>;
 };
@@ -62,7 +61,6 @@ export interface IDatabaseService {
       question_text: string;
       choices: string[];
       correct_answer: string;
-      bloom_level: string;
     }>;
   }): Promise<void>;
 

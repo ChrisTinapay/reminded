@@ -143,11 +143,6 @@ export default function AboutPage() {
             gradient: 'from-cyan-500 to-teal-500',
         },
         {
-            title: 'Bloom\'s Taxonomy Levels',
-            desc: 'Questions aren\'t random. They\'re crafted at different thinking levels — from recall to analysis — so you build deep understanding.',
-            gradient: 'from-teal-500 to-emerald-500',
-        },
-        {
             title: 'Works Everywhere',
             desc: 'Phone, tablet, laptop — any device with a browser. No downloads, no installations. Just open and study.',
             gradient: 'from-emerald-500 to-lime-500',

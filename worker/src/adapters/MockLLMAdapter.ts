@@ -25,13 +25,11 @@ export class MockLLMAdapter implements ILLMService {
         question_text: "What improves long-term recall?",
         choices: ["Spaced repetition", "Cramming", "Guessing", "Skipping"],
         correct_answer: "Spaced repetition",
-        bloom_level: "Understand",
       },
       {
         question_text: "Which choice rule is correct?",
         choices: ["Include correct answer", "Hide correct answer", "Use duplicates", "Use long options"],
         correct_answer: "Include correct answer",
-        bloom_level: "Remember",
       },
     ];
   }
@@ -45,13 +43,11 @@ export class MockLLMAdapter implements ILLMService {
         question_text: "What is the best study method here?",
         choices: ["Spaced repetition", "All-nighter", "Random review", "No review"],
         correct_answer: "Spaced repetition",
-        bloom_level: "Apply",
       },
       {
         question_text: "How many options are typical?",
         choices: ["4", "1", "10", "0"],
         correct_answer: "4",
-        bloom_level: "Remember",
       },
     ];
   }

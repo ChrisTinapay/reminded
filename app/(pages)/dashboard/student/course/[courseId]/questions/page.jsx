@@ -168,7 +168,7 @@ export default function QuestionEditor() {
               <div className="flex justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <span className="px-2 py-1 font-inter bg-indigo-100 text-indigo-600 text-xs font-bold uppercase rounded">
-                    {q.bloom_level}
+                    Q{qIndex + 1}
                   </span>
                   {dirtyQuestions.has(q.id) && (
                     <span className="text-xs font-inter font-semibold text-orange-600 animate-pulse">

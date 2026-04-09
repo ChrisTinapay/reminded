@@ -27,7 +27,7 @@ export function reducePromptForQuestions(allNotes: string[]) {
   return [
     "Using the notes below, generate EXACTLY 20 multiple-choice questions (not 19, not 21).",
     "Return ONLY JSON as an array of 20 objects with fields:",
-    `question_text (string), choices (string[4]), correct_answer (string), bloom_level (string)`,
+    `question_text (string), choices (string[4]), correct_answer (string)`,
     "",
     "CRITICAL CONSTRAINTS:",
     "- question_text under 20 words",

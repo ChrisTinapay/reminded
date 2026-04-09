@@ -35,7 +35,7 @@ Here are the tables we currently use in Supabase that need to be migrated to the
 3.  **`academic_levels`**: Look-up table for levels (id, name).
 4.  **`programs`**: Look-up table for programs/majors (id, name).
 5.  **`learning_materials`**: Stores `course_id`, `file_name`, and `file_path` (points to uploaded PDFs).
-6.  **`questions`**: Stores `course_id`, `material_id`, `question_text`, `choices` (JSON array), `correct_answer`, `bloom_level`.
+6.  **`questions`**: Stores `course_id`, `material_id`, `question_text`, `choices` (JSON array), `correct_answer`.
 7.  **`student_progress`**: Stores `user_id`, `course_id`, spaced-repetition metrics like `interval`, `next_review_date`.
 
 Storage Bucket:

@@ -173,7 +173,6 @@ export class ProcessQuizUseCase {
             question_text: q.question_text,
             choices: q.choices,
             correct_answer: q.correct_answer,
-            bloom_level: q.bloom_level,
           })),
         });
         this.log(claimed.id, "saved questions to DB");
@@ -184,7 +183,6 @@ export class ProcessQuizUseCase {
           question_text: q.question_text,
           choices: q.choices,
           correct_answer: q.correct_answer,
-          bloom_level: q.bloom_level,
         })),
         meta: {
           courseId: payload.courseId,

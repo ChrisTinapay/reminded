@@ -147,7 +147,6 @@ export class SupabaseAdapter implements IDatabaseService {
       question_text: string;
       choices: string[];
       correct_answer: string;
-      bloom_level: string;
     }>;
   }): Promise<void> {
     // Idempotency: remove previous questions for this material, then insert the new set.
@@ -163,7 +162,6 @@ export class SupabaseAdapter implements IDatabaseService {
       question_text: q.question_text,
       choices: q.choices,
       correct_answer: q.correct_answer,
-      bloom_level: q.bloom_level ?? null,
     }));
 
     const { error: insErr } = await this.supabase.from("questions").insert(rows);
