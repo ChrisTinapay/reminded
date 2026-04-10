@@ -33,8 +33,40 @@ export async function middleware(request) {
     }
   )
 
-  // This refreshes the session if it's expired
-  await supabase.auth.getUser()
+  // Refreshes the session if needed (and may update auth cookies on `response`).
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  const path = request.nextUrl.pathname
+
+  function redirectHome() {
+    const url = request.nextUrl.clone()
+    url.pathname = '/'
+    url.search = ''
+    const redirectResponse = NextResponse.redirect(url)
+    // Forward full Set-Cookie headers from session refresh (keeps httpOnly, path, etc.).
+    const rawCookies = response.headers.getSetCookie?.() ?? []
+    for (const c of rawCookies) {
+      redirectResponse.headers.append('Set-Cookie', c)
+    }
+    if (rawCookies.length === 0) {
+      response.cookies.getAll().forEach((cookie) => {
+        redirectResponse.cookies.set(cookie.name, cookie.value)
+      })
+    }
+    return redirectResponse
+  }
+
+  // Dashboard is private: avoid showing the shell to signed-out visitors (or stale bookmarks).
+  if (path.startsWith('/dashboard') && !user) {
+    return redirectHome()
+  }
+
+  // Student setup only makes sense for a signed-in user finishing onboarding.
+  if (path.startsWith('/student-setup') && !user) {
+    return redirectHome()
+  }
 
   return response
 }
