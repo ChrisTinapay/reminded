@@ -128,5 +128,37 @@ export class SupabaseCourseRepository implements CourseRepository {
       topicDueCounts,
     };
   }
+
+  async deleteCourse(courseId: string, studentId: string): Promise<{ deleted: boolean; filePaths: string[] }> {
+    const supabase = createAdminClient();
+
+    const { data: owned, error: ownErr } = await supabase
+      .from("courses")
+      .select("id")
+      .eq("id", Number(courseId))
+      .eq("user_id", studentId)
+      .maybeSingle();
+    if (ownErr) throw ownErr;
+    if (!owned) return { deleted: false, filePaths: [] };
+
+    const { data: materials, error: matErr } = await supabase
+      .from("learning_materials")
+      .select("file_path")
+      .eq("course_id", Number(courseId));
+    if (matErr) throw matErr;
+
+    const filePaths = (materials ?? [])
+      .map((m: any) => (m as any).file_path)
+      .filter((p: any) => typeof p === "string" && p.trim().length > 0);
+
+    const { error: delErr } = await supabase
+      .from("courses")
+      .delete()
+      .eq("id", Number(courseId))
+      .eq("user_id", studentId);
+    if (delErr) throw delErr;
+
+    return { deleted: true, filePaths };
+  }
 }
 

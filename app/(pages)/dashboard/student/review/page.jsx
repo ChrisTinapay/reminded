@@ -106,7 +106,7 @@ export default function GlobalReviewSession() {
     const currentQ = questions[currentIndex]
 
     return (
-        <div className="min-h-screen bg-transparent flex flex-col max-w-2xl mx-auto p-4 md:p-6">
+        <div className="min-h-screen bg-transparent flex flex-col max-w-2xl mx-auto p-4 md:p-6 pb-32 md:pb-6">
 
             {/* Header & Progress */}
             <div className="flex justify-between items-center mb-6">
@@ -178,34 +178,67 @@ export default function GlobalReviewSession() {
             </div>
 
             {/* Footer / Next Button */}
-            <div className="h-24 flex items-end">
-                {isAnswered && (
-                    <div className={`
+            {isAnswered && (
+                <>
+                    {/* Mobile: fixed action bar (no scrolling needed) */}
+                    <div className="md:hidden fixed inset-x-0 bottom-0 z-50 p-3 pb-[calc(12px+env(safe-area-inset-bottom))]">
+                        <div
+                            className={`
+                w-full p-4 rounded-2xl flex items-center justify-between gap-3 shadow-2xl border backdrop-blur-sm bg-white/95 dark:bg-neutral-900/85
+                ${feedback === 'correct'
+                                    ? 'border-green-200 dark:border-green-500/30'
+                                    : 'border-red-200 dark:border-red-500/30'}
+              `}
+                        >
+                            <div className="min-w-0">
+                                <span className={`font-bold text-base block ${feedback === 'correct' ? 'text-green-800 dark:text-green-200' : 'text-red-800 dark:text-red-200'}`}>
+                                    {feedback === 'correct' ? 'Correct!' : 'Incorrect'}
+                                </span>
+                                <span className="text-xs text-gray-600 dark:text-gray-300">
+                                    {feedback === 'correct' && timer <= 5 && "⚡ Super fast! (+5 Quality)"}
+                                    {feedback === 'correct' && timer > 5 && timer <= 12 && "👍 Good pace! (+4 Quality)"}
+                                    {feedback === 'correct' && timer > 12 && "🐢 A bit slow. (+3 Quality)"}
+                                    {feedback === 'wrong' && "Resetting progress."}
+                                </span>
+                            </div>
+                            <button
+                                onClick={handleNext}
+                                className="shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-xl font-bold transition shadow-md"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Desktop: inline footer */}
+                    <div className="hidden md:block">
+                        <div className={`
                 w-full p-4 rounded-xl flex justify-between items-center shadow-lg
                 ${feedback === 'correct'
-                            ? 'bg-green-50 border border-green-200 dark:bg-green-500/10 dark:border-green-500/30'
-                            : 'bg-red-50 border border-red-200 dark:bg-red-500/10 dark:border-red-500/30'}
+                                    ? 'bg-green-50 border border-green-200 dark:bg-green-500/10 dark:border-green-500/30'
+                                    : 'bg-red-50 border border-red-200 dark:bg-red-500/10 dark:border-red-500/30'}
             `}>
-                        <div>
-                            <span className={`font-bold text-lg block ${feedback === 'correct' ? 'text-green-800 dark:text-green-200' : 'text-red-800 dark:text-red-200'}`}>
-                                {feedback === 'correct' ? 'Correct!' : 'Incorrect'}
-                            </span>
-                            <span className="text-sm text-gray-600 dark:text-gray-300">
-                                {feedback === 'correct' && timer <= 5 && "⚡ Super fast! (+5 Quality)"}
-                                {feedback === 'correct' && timer > 5 && timer <= 12 && "👍 Good pace! (+4 Quality)"}
-                                {feedback === 'correct' && timer > 12 && "🐢 A bit slow. (+3 Quality)"}
-                                {feedback === 'wrong' && "Resetting progress."}
-                            </span>
+                            <div>
+                                <span className={`font-bold text-lg block ${feedback === 'correct' ? 'text-green-800 dark:text-green-200' : 'text-red-800 dark:text-red-200'}`}>
+                                    {feedback === 'correct' ? 'Correct!' : 'Incorrect'}
+                                </span>
+                                <span className="text-sm text-gray-600 dark:text-gray-300">
+                                    {feedback === 'correct' && timer <= 5 && "⚡ Super fast! (+5 Quality)"}
+                                    {feedback === 'correct' && timer > 5 && timer <= 12 && "👍 Good pace! (+4 Quality)"}
+                                    {feedback === 'correct' && timer > 12 && "🐢 A bit slow. (+3 Quality)"}
+                                    {feedback === 'wrong' && "Resetting progress."}
+                                </span>
+                            </div>
+                            <button
+                                onClick={handleNext}
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-lg font-bold transition shadow-md"
+                            >
+                                Next Question
+                            </button>
                         </div>
-                        <button
-                            onClick={handleNext}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-lg font-bold transition shadow-md"
-                        >
-                            Next Question
-                        </button>
                     </div>
-                )}
-            </div>
+                </>
+            )}
 
         </div>
     )

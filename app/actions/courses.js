@@ -31,6 +31,11 @@ export async function updateCourseName(courseId, newName) {
     return await courseService.updateCourseName(courseId, newName);
 }
 
+export async function deleteCourse(courseId) {
+    const { courseService } = createCoursesModule();
+    return await courseService.deleteCourse(courseId);
+}
+
 export async function fetchCourseDetails(courseId) {
     const { courseService } = createCoursesModule();
     return await courseService.fetchCourseDetails(courseId);

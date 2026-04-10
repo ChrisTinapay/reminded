@@ -179,5 +179,26 @@ export class CourseService {
 
     return { success: true };
   }
+
+  async deleteCourse(courseId: string) {
+    const user = await this.auth.getCurrentUser();
+    if (!user) return { success: false, error: "Unauthorized" };
+
+    const { deleted, filePaths } = await this.courses.deleteCourse(String(courseId), user.id);
+    if (!deleted) return { success: false, error: "Course not found." };
+
+    // Best-effort storage cleanup. DB cascades delete learning_materials/questions/progress.
+    await Promise.all(
+      (filePaths ?? []).map(async (p) => {
+        try {
+          await this.storage.removeMaterial(p);
+        } catch (err) {
+          console.error("Warning: Failed to delete from storage:", err);
+        }
+      }),
+    );
+
+    return { success: true };
+  }
 }
 

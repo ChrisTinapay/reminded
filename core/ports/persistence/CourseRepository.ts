@@ -36,5 +36,9 @@ export interface CourseRepository {
   updateCourseName(courseId: CourseId, newName: string, studentId: UserId): Promise<void>;
   getCourseDetails(courseId: CourseId): Promise<CourseRecord | null>;
   getCoursePageData(courseId: CourseId, userId: UserId, today: string): Promise<CoursePageData | null>;
+  deleteCourse(
+    courseId: CourseId,
+    studentId: UserId,
+  ): Promise<{ deleted: boolean; filePaths: string[] }>;
 }
 

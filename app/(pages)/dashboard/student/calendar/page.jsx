@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/app/_lib/supabaseClient';
 import { fetchDashboardData } from '@/app/actions/dashboard';
 import StudyCalendar from '../../_components/StudyCalendar';
+import Sm2AlgorithmGuide from '../../_components/Sm2AlgorithmGuide';
 
 export default function StudentCalendarPage() {
   const [loading, setLoading] = useState(true);
@@ -39,6 +40,7 @@ export default function StudentCalendarPage() {
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       <StudyCalendar schedule={schedule} />
+      <Sm2AlgorithmGuide />
     </div>
   );
 }

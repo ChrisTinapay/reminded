@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import ConfirmDialog from '@/app/components/ConfirmDialog';
 
 // Actions
 import { createCourse } from '../../../../actions/courses';
@@ -14,6 +15,7 @@ export default function CreateCourse() {
 
   // Loading States
   const [loading, setLoading] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -25,8 +27,8 @@ export default function CreateCourse() {
       });
 
       if (response?.success) {
-        alert('Course created successfully!');
-        router.push('/dashboard/student');
+        setShowSuccess(true);
+        setLoading(false);
       } else {
         alert(response?.error || 'Something went wrong. Please try again.');
         setLoading(false);
@@ -52,7 +54,17 @@ export default function CreateCourse() {
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen py-12">
+    <div className="flex justify-center items-center py-6">
+      <ConfirmDialog
+        open={showSuccess}
+        title="Course created"
+        description="Your new course is ready. You can start adding topics anytime."
+        confirmText="Go to dashboard"
+        cancelText="Stay here"
+        tone="primary"
+        onClose={() => setShowSuccess(false)}
+        onConfirm={() => router.push('/dashboard/student')}
+      />
       <div className="w-full max-w-lg p-8 rounded-lg shadow-md">
         <h1 className="text-2xl font-bold font-poppins text-center brand-primary mb-8">
           Create Your Course

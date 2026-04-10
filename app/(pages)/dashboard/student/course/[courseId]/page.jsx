@@ -8,9 +8,10 @@ import { uploadMaterialToStorage } from '@/app/actions/generateQuestions'
 import { enqueueQuizJobFromStorageRef, getJobQueueJob, retryJobQueueJob } from '@/app/actions/jobQueue'
 import { distributeAnswerPositions } from '@/lib/llm/distributeAnswerPositions'
 import { saveQuestion } from '@/app/actions/questions'
-import { fetchCoursePageData, saveLearningMaterial, fetchLearningMaterials, deleteLearningMaterial, updateCourseName, updateTopicName } from '@/app/actions/courses'
+import { fetchCoursePageData, saveLearningMaterial, fetchLearningMaterials, deleteLearningMaterial, updateCourseName, updateTopicName, deleteCourse } from '@/app/actions/courses'
 import CriticalMassGame from '@/app/components/CriticalMassGame'
 import PdfPageSelector from '@/app/components/PdfPageSelector'
+import ConfirmDialog from '@/app/components/ConfirmDialog'
 
 export default function CourseLobby() {
   const params = useParams()
@@ -55,6 +56,8 @@ export default function CourseLobby() {
   const toastTimerRef = useRef(null)
   const jobPollRef = useRef(null)
   const longWaitNotifiedRef = useRef(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [deletingCourse, setDeletingCourse] = useState(false)
   const showToast = (type, message) => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
     setToast({ type, message })
@@ -75,6 +78,24 @@ export default function CourseLobby() {
     const id = setInterval(() => setHudNow(Date.now()), 250)
     return () => clearInterval(id)
   }, [isGenerating])
+
+  const handleDeleteCourse = async () => {
+    if (!course?.id) return
+    try {
+      setDeletingCourse(true)
+      setLoading(true)
+      const res = await deleteCourse(course.id)
+      if (!res?.success) throw new Error(res?.error || 'Failed to delete course')
+      showToast('success', 'Course deleted.')
+      router.push('/dashboard/student')
+    } catch (err) {
+      showToast('error', 'Error deleting course: ' + (err?.message || String(err)))
+    } finally {
+      setDeletingCourse(false)
+      setLoading(false)
+      setShowDeleteDialog(false)
+    }
+  }
 
   useEffect(() => {
     const fetchData = async () => {
@@ -438,6 +459,25 @@ export default function CourseLobby() {
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-8">
 
+      <ConfirmDialog
+        open={showDeleteDialog}
+        title="Delete course?"
+        description={
+          course?.course_name
+            ? `This will permanently delete "${course.course_name}", including all topics, questions, and progress.`
+            : 'This will permanently delete this course, including all topics, questions, and progress.'
+        }
+        confirmText="Delete course"
+        cancelText="Cancel"
+        tone="danger"
+        busy={deletingCourse}
+        onClose={() => {
+          if (deletingCourse) return
+          setShowDeleteDialog(false)
+        }}
+        onConfirm={handleDeleteCourse}
+      />
+
       {/* Toast Notification */}
       {toast && (
         <div className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-xl shadow-lg border backdrop-blur-sm transition-all animate-[slideIn_0.3s_ease-out] ${toast.type === 'success'
@@ -515,25 +555,38 @@ export default function CourseLobby() {
             )}
             <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Your personal study space</p>
           </div>
-          {stats.due > 0 ? (
-            <Link
-              href={`/dashboard/student/course/${courseId}/review?topic=${encodeURIComponent(course.course_name + ' — All Topics')}`}
-              className="group relative inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-all transform hover:scale-105"
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+            <button
+              type="button"
+              onClick={() => setShowDeleteDialog(true)}
+              className="inline-flex items-center justify-center gap-2 border border-red-200 bg-red-50 text-red-700 font-semibold py-3 px-5 rounded-full hover:bg-red-100 transition-colors dark:bg-red-500/10 dark:border-red-500/30 dark:text-red-200 dark:hover:bg-red-500/15"
+              title="Delete course"
             >
-              <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
-              <span>Review {course.course_name} ({stats.due} Due)</span>
-            </Link>
-          ) : (
-            <div className="inline-flex items-center justify-center bg-green-100 text-green-700 font-bold py-3 px-8 rounded-full dark:bg-green-500/10 dark:text-green-200 dark:border dark:border-green-500/30">
-              <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <span>All Caught Up!</span>
-            </div>
-          )}
+              Delete course
+            </button>
+            {stats.due > 0 ? (
+              <Link
+                href={`/dashboard/student/course/${courseId}/review?topic=${encodeURIComponent(course.course_name + ' — All Topics')}`}
+                className="group relative inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-all transform hover:scale-105"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Review {course.course_name} ({stats.due} Due)</span>
+              </Link>
+            ) : (
+              <div className="inline-flex items-center justify-center bg-green-100 text-green-700 font-bold py-3 px-8 rounded-full dark:bg-green-500/10 dark:text-green-200 dark:border dark:border-green-500/30">
+                <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span>All Caught Up!</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

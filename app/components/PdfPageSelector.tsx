@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { PDFDocument } from 'pdf-lib';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -31,6 +31,9 @@ export default function PdfPageSelector({ onExtract, initialFile = null, classNa
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Preview modal: render each PDF page at this width so mobile isn’t clipped (fixed 900px overflow). */
+  const previewScrollRef = useRef<HTMLDivElement | null>(null);
+  const [previewPageWidth, setPreviewPageWidth] = useState(360);
 
   useEffect(() => {
     if (!isPreviewOpen) return;
@@ -40,6 +43,25 @@ export default function PdfPageSelector({ onExtract, initialFile = null, classNa
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isPreviewOpen]);
+
+  useLayoutEffect(() => {
+    if (!isPreviewOpen) return;
+    const el = previewScrollRef.current;
+    if (!el) return;
+    const updateWidth = () => {
+      const w = el.clientWidth;
+      // Leave a little margin so the page doesn’t touch scrollbars / rounded corners
+      setPreviewPageWidth(Math.min(900, Math.max(240, Math.floor(w - 8))));
+    };
+    updateWidth();
+    const ro = new ResizeObserver(updateWidth);
+    ro.observe(el);
+    window.addEventListener('orientationchange', updateWidth);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('orientationchange', updateWidth);
+    };
+  }, [isPreviewOpen, numPages]);
 
   // Critical: configure pdf.js worker for Next.js so rendering doesn't block main thread.
   useEffect(() => {
@@ -329,7 +351,7 @@ export default function PdfPageSelector({ onExtract, initialFile = null, classNa
                     onMouseDown={() => setIsPreviewOpen(false)}
                   />
 
-                  <div className="relative w-full max-w-6xl max-h-[92vh] overflow-hidden rounded-2xl bg-white dark:bg-gray-950 border brand-border shadow-2xl">
+                  <div className="relative w-full min-w-0 max-w-6xl max-h-[92vh] overflow-hidden rounded-2xl bg-white dark:bg-gray-950 border brand-border shadow-2xl">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 py-3 border-b brand-border">
                       <div className="min-w-0">
                         <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
@@ -367,7 +389,10 @@ export default function PdfPageSelector({ onExtract, initialFile = null, classNa
                       </div>
                     </div>
 
-                    <div className="overflow-auto max-h-[calc(92vh-56px)] px-3 sm:px-6 py-4 bg-gray-50/60 dark:bg-white/5">
+                    <div
+                      ref={previewScrollRef}
+                      className="overflow-y-auto overflow-x-auto max-h-[calc(92vh-56px)] px-3 sm:px-6 py-4 bg-gray-50/60 dark:bg-white/5 min-w-0"
+                    >
                       <Document
                         file={fileUrl}
                         loading={
@@ -390,7 +415,7 @@ export default function PdfPageSelector({ onExtract, initialFile = null, classNa
                                 key={`preview-page-${pageNum}`}
                                 type="button"
                                 onClick={() => toggle(pageNum)}
-                                className={`w-full text-left rounded-2xl border transition-colors overflow-hidden ${
+                                className={`w-full max-w-full min-w-0 text-left rounded-2xl border transition-colors overflow-hidden ${
                                   isSelected
                                     ? 'border-indigo-400 ring-2 ring-indigo-500/30 bg-white dark:bg-gray-950'
                                     : 'border-gray-200 dark:border-white/10 bg-white dark:bg-gray-950 hover:border-indigo-300 dark:hover:border-indigo-400/30'
@@ -416,15 +441,18 @@ export default function PdfPageSelector({ onExtract, initialFile = null, classNa
                                   </div>
                                 </div>
 
-                                <div className="flex justify-center p-3 sm:p-5 bg-black/5 dark:bg-white/5">
+                                <div className="flex justify-center p-2 sm:p-5 bg-black/5 dark:bg-white/5 min-w-0">
                                   <Page
                                     pageNumber={pageNum}
-                                    width={900}
+                                    width={previewPageWidth}
                                     // Enable text layer here so users can actually read/select text.
                                     renderTextLayer
                                     renderAnnotationLayer
                                     loading={
-                                      <div className="h-[520px] w-full max-w-[900px] flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">
+                                      <div
+                                        className="min-h-[240px] w-full max-w-full flex items-center justify-center text-sm text-gray-500 dark:text-gray-400"
+                                        style={{ maxWidth: previewPageWidth }}
+                                      >
                                         Rendering…
                                       </div>
                                     }
