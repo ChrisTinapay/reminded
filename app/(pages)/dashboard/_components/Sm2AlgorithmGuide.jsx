@@ -210,10 +210,10 @@ function GrowthRow({ label, value, note, widthPct }) {
       <div className="flex-1 min-w-0">
         <div className="h-9 rounded-lg bg-gray-100 dark:bg-white/10 overflow-hidden">
           <div
-            className="h-full rounded-lg bg-gradient-to-r from-indigo-600 to-violet-500 flex items-center justify-end pr-2"
+            className="h-full min-w-[2.75rem] max-w-full rounded-lg bg-gradient-to-r from-indigo-600 to-violet-500 flex items-center justify-center px-1.5"
             style={{ width: `${widthPct}%` }}
           >
-            <span className="text-xs font-bold text-white drop-shadow-sm">{value}</span>
+            <span className="text-xs font-bold text-white drop-shadow-sm whitespace-nowrap">{value}</span>
           </div>
         </div>
       </div>
