@@ -5,10 +5,15 @@ const nextConfig = {
       bodySizeLimit: '4.5mb',
     },
   },
-  serverActions: {
-    bodySizeLimit: '4.5mb',
-  },
   reactCompiler: true,
+  turbopack: {},
 };
 
-export default nextConfig;
+import nextPWA from 'next-pwa';
+
+const withPWA = nextPWA({
+  dest: 'public',
+  disable: process.env.NODE_ENV === 'development',
+});
+
+export default withPWA(nextConfig);
