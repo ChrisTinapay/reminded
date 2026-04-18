@@ -1,20 +1,35 @@
 {
   "name": "ReMindED Spaced Repetition",
   "short_name": "ReMindED",
+  "description": "AI-assisted spaced repetition quiz generator.",
   "start_url": "/",
   "display": "standalone",
-  "theme_color": "#131312",
   "background_color": "#131312",
+  "theme_color": "#131312",
   "icons": [
     {
-      "src": "/icons/reminded-icon.png",
+      "src": "/icons/icon-192x192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/icons/reminded-icon.png",
+      "src": "/icons/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/mobile.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "/screenshots/desktop.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide"
     }
   ]
 }
