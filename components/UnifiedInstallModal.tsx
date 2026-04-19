@@ -197,7 +197,7 @@ export default function UnifiedInstallModal() {
     isInAppBrowser ? (
       <div className="rounded-xl border-2 border-red-500/70 bg-red-950/20 p-3">
         <p id="unified-install-title" className="text-sm font-semibold text-red-200">
-          ReMindED cannot be installed from this mini-browser.
+          RemindED cannot be installed from this mini-browser.
         </p>
         <p className="mt-2 text-sm text-white/85">
           Tap the menu icon and select &apos;Open in Chrome/Safari&apos;.
@@ -206,7 +206,7 @@ export default function UnifiedInstallModal() {
     ) : deferredPrompt ? (
       <div>
         <p id="unified-install-title" className="text-sm font-semibold text-white">
-          Install ReMindED
+          Install RemindED
         </p>
         <p className="mt-1 text-sm text-white/75">
           Add this app to your device for quick access and a full-screen experience.
@@ -216,13 +216,13 @@ export default function UnifiedInstallModal() {
           onClick={handleInstallClick}
           className="mt-3 w-full rounded-xl bg-white px-4 py-3 text-sm font-semibold text-[#131312] hover:bg-white/90"
         >
-          Install ReMindED
+          Install RemindED
         </button>
       </div>
     ) : showFallback && deviceOs === 'ios' ? (
       <div>
         <p id="unified-install-title" className="text-sm font-semibold text-white">
-          Install ReMindED
+          Install RemindED
         </p>
         <p className="mt-2 text-sm text-white/80">
           To install: Tap the{' '}
@@ -236,7 +236,7 @@ export default function UnifiedInstallModal() {
     ) : showFallback && deviceOs === 'android' ? (
       <div>
         <p id="unified-install-title" className="text-sm font-semibold text-white">
-          Install ReMindED
+          Install RemindED
         </p>
         <p className="mt-2 text-sm text-white/80">
           To install: Tap the Three Dots (⋮) in your browser menu, then Add to Home

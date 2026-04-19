@@ -1,6 +1,6 @@
 {
-  "name": "ReMindED Spaced Repetition",
-  "short_name": "ReMindED",
+  "name": "RemindED Spaced Repetition",
+  "short_name": "RemindED",
   "description": "AI-assisted spaced repetition quiz generator.",
   "start_url": "/",
   "display": "standalone",
