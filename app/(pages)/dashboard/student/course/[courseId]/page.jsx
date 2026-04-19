@@ -338,7 +338,7 @@ export default function CourseLobby() {
             setGeneratedQuestions(payload?.questions || [])
 
             if ((payload?.questions || []).length > 0) {
-              showToast('success', 'Quiz is ready and saved. You can leave this page anytime.')
+              showToast('success', 'Quiz is ready and saved!')
               const localToday = new Date().toLocaleDateString('en-CA')
               const data = await fetchCoursePageData(courseId, localToday)
               if (data) {

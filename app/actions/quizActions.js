@@ -41,38 +41,30 @@ export async function getDueQuestions(courseId, materialId = null, clientToday =
       limit: BATCH_SIZE,
     })
 
-    let questions = due.map(q => ({
+    // If nothing is "due" yet (common for brand-new uploads), start with new material.
+    const base = due.length > 0
+      ? due.map((q) => ({ ...q, _is_new: false }))
+      : (await quizRepository.getNewQuestionsForUser({
+          userId: user.id,
+          courseId: String(courseId),
+          materialId: materialId ? String(materialId) : null,
+          limit: BATCH_SIZE,
+        })).map((q) => ({ ...q, _is_new: true }))
+
+    const questions = base.map(q => ({
       id: q.id,
       course_id: q.courseId,
       material_id: q.materialId,
       question_text: q.questionText,
       choices: shuffleArray(q.choices),
       correct_answer: q.correctAnswer,
-      _is_new: false,
+      _is_new: Boolean(q._is_new),
+      retention_state: q.retentionState ?? (q._is_new ? 'Learning' : null),
     }))
-
-    if (questions.length < BATCH_SIZE) {
-      const more = await quizRepository.getNewQuestionsForUser({
-        userId: user.id,
-        courseId: String(courseId),
-        materialId: materialId ? String(materialId) : null,
-        limit: BATCH_SIZE - questions.length,
-      })
-      const newQuestions = more.map(q => ({
-        id: q.id,
-        course_id: q.courseId,
-        material_id: q.materialId,
-        question_text: q.questionText,
-        choices: shuffleArray(q.choices),
-        correct_answer: q.correctAnswer,
-        _is_new: true,
-      }))
-      questions = [...questions, ...newQuestions]
-    }
 
     return { questions: questions.sort(() => Math.random() - 0.5) }
   } catch (err) {
-    console.error("Error Fetching Turso Questions:", err);
+    console.error("Error fetching questions:", err);
     return { error: 'Failed to fetch' }
   }
 }
@@ -92,7 +84,15 @@ export async function getGlobalDueQuestions(clientToday = null) {
       limit: BATCH_SIZE,
     })
 
-    let questions = due.map(q => ({
+    // If nothing due globally, pull new material so the "Study Now" button still works for first-time users.
+    const base = due.length > 0
+      ? due.map((q) => ({ ...q, _is_new: false }))
+      : (await quizRepository.getGlobalNewQuestionsForUser({
+          userId: user.id,
+          limit: BATCH_SIZE,
+        })).map((q) => ({ ...q, _is_new: true }))
+
+    const questions = base.map(q => ({
       id: q.id,
       course_id: q.courseId,
       material_id: q.materialId,
@@ -101,27 +101,9 @@ export async function getGlobalDueQuestions(clientToday = null) {
       correct_answer: q.correctAnswer,
       course_name: q.courseName,
       topic_name: q.topicName,
-      _is_new: false,
+      _is_new: Boolean(q._is_new),
+      retention_state: q.retentionState ?? (q._is_new ? 'Learning' : null),
     }))
-
-    if (questions.length < BATCH_SIZE) {
-      const more = await quizRepository.getGlobalNewQuestionsForUser({
-        userId: user.id,
-        limit: BATCH_SIZE - questions.length,
-      })
-      const newQuestions = more.map(q => ({
-        id: q.id,
-        course_id: q.courseId,
-        material_id: q.materialId,
-        question_text: q.questionText,
-        choices: shuffleArray(q.choices),
-        correct_answer: q.correctAnswer,
-        course_name: q.courseName,
-        topic_name: q.topicName,
-        _is_new: true,
-      }))
-      questions = [...questions, ...newQuestions]
-    }
 
     return { questions: questions.sort(() => Math.random() - 0.5) }
   } catch (err) {

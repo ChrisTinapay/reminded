@@ -36,11 +36,11 @@ export default function ConfirmDialog({
       : 'bg-red-600 hover:bg-red-700 text-white'
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       <button
         type="button"
         aria-label="Close dialog"
-        className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
+        className="fixed inset-0 bg-black/50 backdrop-blur-[2px]"
         onClick={onClose}
       />
 
@@ -78,14 +78,16 @@ export default function ConfirmDialog({
           </div>
 
           <div className="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={busy}
-              className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl text-sm font-semibold border bg-white hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/10 dark:text-gray-100"
-            >
-              {cancelText}
-            </button>
+            {cancelText ? (
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={busy}
+                className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl text-sm font-semibold border bg-white hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/10 dark:text-gray-100"
+              >
+                {cancelText}
+              </button>
+            ) : null}
             <button
               ref={confirmRef}
               type="button"

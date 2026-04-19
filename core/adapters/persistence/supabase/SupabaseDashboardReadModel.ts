@@ -8,7 +8,9 @@ export class SupabaseDashboardReadModel implements DashboardReadModel {
   async getDashboardSnapshot(userId: string, today: string): Promise<DashboardSnapshot> {
     const supabase = createAdminClient();
 
-    const [profileRes, coursesRes, scheduledRes, newRes, dueByCourseRes] = await Promise.all([
+    const dueOrFilter = `next_review_date.is.null,next_review_date.lte.${today}`;
+
+    const [profileRes, coursesRes, scheduledRes, newRes, dueByCourseRes, dueRetentionRes] = await Promise.all([
       // `email` lives on auth.users; many Supabase `profiles` tables omit it.
       supabase.from("profiles").select("id,full_name").eq("id", userId).maybeSingle(),
       supabase
@@ -19,6 +21,11 @@ export class SupabaseDashboardReadModel implements DashboardReadModel {
       supabase.rpc("dashboard_scheduled_counts", { p_user_id: userId }),
       supabase.rpc("dashboard_new_counts", { p_user_id: userId }),
       supabase.rpc("dashboard_due_by_course", { p_user_id: userId, p_today: today }),
+      supabase
+        .from("student_progress")
+        .select("course_id,retention_state")
+        .eq("user_id", userId)
+        .or(dueOrFilter),
     ]);
 
     if (profileRes.error) throw profileRes.error;
@@ -26,6 +33,7 @@ export class SupabaseDashboardReadModel implements DashboardReadModel {
     if (scheduledRes.error) throw scheduledRes.error;
     if (newRes.error) throw newRes.error;
     if (dueByCourseRes.error) throw dueByCourseRes.error;
+    if (dueRetentionRes.error) throw dueRetentionRes.error;
 
     const profile = profileRes.data
       ? {
@@ -35,12 +43,30 @@ export class SupabaseDashboardReadModel implements DashboardReadModel {
         }
       : null;
 
+    const retentionByCourse = new Map<
+      string,
+      { learning: number; familiar: number; mastered: number }
+    >();
+    for (const row of (dueRetentionRes.data ?? []) as any[]) {
+      const cid = String(row.course_id);
+      const st = String(row.retention_state ?? "Familiar");
+      if (!retentionByCourse.has(cid)) {
+        retentionByCourse.set(cid, { learning: 0, familiar: 0, mastered: 0 });
+      }
+      const b = retentionByCourse.get(cid)!;
+      if (st === "Learning") b.learning += 1;
+      else if (st === "Mastered") b.mastered += 1;
+      else b.familiar += 1;
+    }
+
+    const emptyRetention = { learning: 0, familiar: 0, mastered: 0 };
     const courses = (coursesRes.data ?? []).map((row: any) => ({
       id: String(row.id),
       name: row.course_name,
       studentId: row.user_id,
       topicCount: Number(row.learning_materials?.[0]?.count ?? 0),
       createdAt: row.created_at,
+      retentionDue: retentionByCourse.get(String(row.id)) ?? { ...emptyRetention },
     }));
 
     const schedule = [
@@ -62,24 +88,11 @@ export class SupabaseDashboardReadModel implements DashboardReadModel {
       })),
     ];
 
-    const globalDueByCourse = [
-      ...((dueByCourseRes.data ?? []) as any[]).map((r) => ({
-        courseId: String(r.course_id),
-        courseName: r.course_name,
-        count: Number(r.count),
-      })),
-      // add new questions to due by course
-      ...((newRes.data ?? []) as any[]).map((r) => ({
-        courseId: String(r.course_id),
-        courseName: r.course_name,
-        count: Number(r.question_count),
-      })),
-    ].reduce((acc: any[], row) => {
-      const existing = acc.find((x) => x.courseId === row.courseId);
-      if (existing) existing.count += row.count;
-      else acc.push({ ...row });
-      return acc;
-    }, []);
+    const globalDueByCourse = ((dueByCourseRes.data ?? []) as any[]).map((r) => ({
+      courseId: String(r.course_id),
+      courseName: r.course_name,
+      count: Number(r.count),
+    }));
 
     return { profile, courses, schedule, globalDueByCourse };
   }

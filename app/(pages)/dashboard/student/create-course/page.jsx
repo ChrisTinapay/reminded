@@ -66,7 +66,7 @@ export default function CreateCourse() {
         title="Course created"
         description="Your new course is ready. You can start adding topics anytime."
         confirmText="Go to dashboard"
-        // cancelText="Stay here"
+        cancelText={null}
         tone="primary"
         onClose={() => setShowSuccess(false)}
         onConfirm={() => router.push('/dashboard/student')}

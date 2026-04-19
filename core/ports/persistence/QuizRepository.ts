@@ -14,6 +14,7 @@ export interface DueQuestion {
   correctAnswer: string;
   courseName?: string;
   topicName?: string;
+  retentionState?: string;
 }
 
 export interface StudentProgressState {

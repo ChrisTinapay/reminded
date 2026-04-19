@@ -56,6 +56,7 @@ export class DashboardService {
         student_id: c.studentId,
         topic_count: c.topicCount,
         created_at: c.createdAt,
+        retention_due: c.retentionDue,
       })),
       schedule: scheduleMap,
       globalDue: { total: globalDueTotal, courses: globalDueCourses },

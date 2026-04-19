@@ -6,12 +6,20 @@ export interface DashboardProfile {
   email: string | null;
 }
 
+export interface DashboardRetentionDue {
+  learning: number;
+  familiar: number;
+  mastered: number;
+}
+
 export interface DashboardCourse {
   id: CourseId;
   name: string;
   studentId: UserId;
   topicCount: number;
   createdAt: string;
+  /** Counts by `retention_state` among rows due today (null or next_review_date <= today). */
+  retentionDue: DashboardRetentionDue;
 }
 
 export interface DashboardScheduleEntry {

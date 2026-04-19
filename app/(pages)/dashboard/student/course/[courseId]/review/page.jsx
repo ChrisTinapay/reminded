@@ -126,6 +126,23 @@ export default function ReviewSession() {
                   ) : (
                     <span className="text-orange-600">Review</span>
                   )}
+                  {currentQ.retention_state ? (
+                    <>
+                      <span className="text-gray-300 dark:text-white/20">•</span>{' '}
+                      <span
+                        className={
+                          `rounded-full border px-2 py-0.5 text-[10px] font-extrabold tracking-wider ` +
+                          (currentQ.retention_state === 'Mastered'
+                            ? 'text-[#86efac] border-[#166534]/45 bg-[#0f1a12]'
+                            : currentQ.retention_state === 'Learning'
+                              ? 'text-[#93c5fd] border-[#1d4ed8]/45 bg-[#0b1220]'
+                              : 'text-[#fdba74] border-[#9a3412]/45 bg-[#1f120b]')
+                        }
+                      >
+                        {String(currentQ.retention_state).toUpperCase()}
+                      </span>
+                    </>
+                  ) : null}
                 </div>
               </div>
               <div className={`shrink-0 text-sm font-mono font-bold px-3 py-1 rounded-full transition-colors ${displaySeconds < 10 ? 'bg-green-100 text-green-700' : displaySeconds < 20 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>

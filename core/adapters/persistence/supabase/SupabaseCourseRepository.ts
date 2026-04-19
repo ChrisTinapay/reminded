@@ -47,6 +47,8 @@ export class SupabaseCourseRepository implements CourseRepository {
   async getCoursePageData(courseId: string, userId: string, today: string): Promise<CoursePageData | null> {
     const supabase = createAdminClient();
 
+    const dueOrFilter = `next_review_date.is.null,next_review_date.lte.${today}`;
+
     const [courseRes, materialsRes, totalRes, dueRes, newRes, masteredRes, topicDueRes, topicNewRes] =
       await Promise.all([
         supabase.from("courses").select("id,course_name,user_id,created_at").eq("id", Number(courseId)).maybeSingle(),
@@ -61,7 +63,7 @@ export class SupabaseCourseRepository implements CourseRepository {
           .select("id", { count: "exact", head: true })
           .eq("user_id", userId)
           .eq("course_id", Number(courseId))
-          .lte("next_review_date", today),
+          .or(dueOrFilter),
         supabase.rpc("count_new_questions_for_course", { p_user_id: userId, p_course_id: Number(courseId) }),
         supabase
           .from("student_progress")

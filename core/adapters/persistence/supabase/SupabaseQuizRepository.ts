@@ -44,6 +44,7 @@ export class SupabaseQuizRepository implements QuizRepository {
       questionText: row.question_text,
       choices: normalizeChoices(row.choices),
       correctAnswer: row.correct_answer,
+      retentionState: row.retention_state ?? undefined,
     }));
   }
 
@@ -68,6 +69,7 @@ export class SupabaseQuizRepository implements QuizRepository {
       questionText: row.question_text,
       choices: normalizeChoices(row.choices),
       correctAnswer: row.correct_answer,
+      retentionState: row.retention_state ?? undefined,
     }));
   }
 
@@ -92,6 +94,7 @@ export class SupabaseQuizRepository implements QuizRepository {
       correctAnswer: row.correct_answer,
       courseName: row.course_name ?? undefined,
       topicName: row.topic_name ?? undefined,
+      retentionState: row.retention_state ?? undefined,
     }));
   }
 
@@ -114,6 +117,7 @@ export class SupabaseQuizRepository implements QuizRepository {
       correctAnswer: row.correct_answer,
       courseName: row.course_name ?? undefined,
       topicName: row.topic_name ?? undefined,
+      retentionState: row.retention_state ?? undefined,
     }));
   }
 

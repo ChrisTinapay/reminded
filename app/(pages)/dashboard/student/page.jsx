@@ -8,6 +8,7 @@ import { supabase } from '@/app/_lib/supabaseClient';
 import { fetchDashboardData } from '@/app/actions/dashboard';
 import { deleteCourse } from '@/app/actions/courses';
 import ConfirmDialog from '@/app/components/ConfirmDialog';
+import CourseRetentionDueBadges from '../_components/CourseRetentionDueBadges';
 
 export default function StudentDashboard() {
   const [courses, setCourses] = useState([]);
@@ -190,6 +191,7 @@ export default function StudentDashboard() {
                       <span>•</span>
                       <span>{new Date(course.created_at).toLocaleDateString()}</span>
                     </div>
+                    <CourseRetentionDueBadges counts={course.retention_due} />
                   </div>
                 </Link>
               </div>
