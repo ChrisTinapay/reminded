@@ -1,7 +1,7 @@
 import { Inter, Poppins } from 'next/font/google';
 import './globals.css';
 import ThemeScript from './_components/ThemeScript';
-import IosInstallModal from '../components/IosInstallModal';
+import UnifiedInstallModal from '../components/UnifiedInstallModal';
 
 const inter = Inter({
   variable: '--font-inter',
@@ -35,7 +35,7 @@ export default function RootLayout({ children }) {
       </head>
       <body className={`${inter.variable} ${poppins.variable} antialiased`}>
         <ThemeScript />
-        <IosInstallModal />
+        <UnifiedInstallModal />
         {children}
       </body>
     </html>
