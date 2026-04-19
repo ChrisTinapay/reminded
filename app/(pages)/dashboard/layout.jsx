@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Header from './_components/Header';
 import NavigationBar from './_components/NavigationBar';
+import OnboardingTour from '@/components/OnboardingTour';
 
 const DEFAULT_WIDTH = 256;
 
@@ -29,6 +30,7 @@ export default function DashboardLayout({ children }) {
 
   return (
     <div className="min-h-screen brand-background">
+      <OnboardingTour />
       <NavigationBar />
       <main
         className="transition-[margin-left] duration-75 pb-20 md:pb-0"

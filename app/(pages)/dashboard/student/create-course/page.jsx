@@ -27,6 +27,12 @@ export default function CreateCourse() {
       });
 
       if (response?.success) {
+        try {
+          window.localStorage.setItem('reminded_tour_phase_1_dashboard', '1');
+          window.localStorage.setItem('reminded_tour_phase_2_create_form', '1');
+        } catch {
+          // ignore
+        }
         setShowSuccess(true);
         setLoading(false);
       } else {
@@ -60,19 +66,22 @@ export default function CreateCourse() {
         title="Course created"
         description="Your new course is ready. You can start adding topics anytime."
         confirmText="Go to dashboard"
-        cancelText="Stay here"
+        // cancelText="Stay here"
         tone="primary"
         onClose={() => setShowSuccess(false)}
         onConfirm={() => router.push('/dashboard/student')}
       />
-      <div className="w-full max-w-lg p-8 rounded-lg shadow-md">
+      <div
+        id="tour-create-course-card"
+        className="w-full max-w-lg p-8 rounded-lg shadow-md"
+      >
         <h1 className="text-2xl font-bold font-poppins text-center brand-primary mb-8">
           Create Your Course
         </h1>
 
         <form className="space-y-6" onSubmit={handleSubmit}>
           {/* Course Name Input */}
-          <div>
+          <div id="tour-create-course-name">
             <label
               htmlFor="courseName"
               className="block text-sm font-semi-bold font-inter brand-secondary"
@@ -92,6 +101,7 @@ export default function CreateCourse() {
 
           {/* Submit Button */}
           <button
+            id="tour-create-course-submit"
             type="submit"
             disabled={loading}
             className="w-full rounded-md brand-cta px-4 py-3 text-base font-inter font-semibold leading-6 text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:bg-gray-400"

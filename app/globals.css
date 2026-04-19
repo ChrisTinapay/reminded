@@ -85,3 +85,62 @@
     @apply dark:bg-indigo-500 bg-indigo-600 transition-colors duration-400;
   }
 }
+
+/* driver.js — RemindED onboarding (dark popover, indigo primary actions) */
+.driver-popover.reminded-driver-popover {
+  background-color: #1e1e1e !important;
+  color: #fafafa !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45) !important;
+}
+
+.driver-popover.reminded-driver-popover .driver-popover-title {
+  color: #ffffff !important;
+}
+
+.driver-popover.reminded-driver-popover .driver-popover-description {
+  color: rgba(255, 255, 255, 0.88) !important;
+}
+
+.driver-popover.reminded-driver-popover .driver-popover-progress-text {
+  color: rgba(255, 255, 255, 0.55) !important;
+}
+
+.driver-popover.reminded-driver-popover .driver-popover-close-btn {
+  color: rgba(255, 255, 255, 0.45) !important;
+}
+
+.driver-popover.reminded-driver-popover .driver-popover-close-btn:hover,
+.driver-popover.reminded-driver-popover .driver-popover-close-btn:focus {
+  color: #ffffff !important;
+}
+
+.driver-popover.reminded-driver-popover .driver-popover-footer button {
+  text-shadow: none !important;
+  border-radius: 0.5rem !important;
+  padding: 0.5rem 0.875rem !important;
+  font-size: 0.8125rem !important;
+  line-height: 1.25 !important;
+}
+
+.driver-popover.reminded-driver-popover .driver-popover-prev-btn {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: #f5f5f5 !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+}
+
+.driver-popover.reminded-driver-popover .driver-popover-prev-btn:hover,
+.driver-popover.reminded-driver-popover .driver-popover-prev-btn:focus {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.driver-popover.reminded-driver-popover .driver-popover-next-btn {
+  background-color: #4f46e5 !important;
+  color: #ffffff !important;
+  border: 1px solid #6366f1 !important;
+}
+
+.driver-popover.reminded-driver-popover .driver-popover-next-btn:hover,
+.driver-popover.reminded-driver-popover .driver-popover-next-btn:focus {
+  background-color: #4338ca !important;
+}

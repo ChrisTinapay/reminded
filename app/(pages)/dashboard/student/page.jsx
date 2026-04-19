@@ -37,6 +37,18 @@ export default function StudentDashboard() {
 
           setCourses(data.courses);
           setGlobalDue(data.globalDue);
+
+          // Users who already have courses skip only the create-form tour (they clearly created one before).
+          // Do NOT auto-complete phase 1 — they should still see the dashboard "how to create a course" tour.
+          if (data.courses?.length > 0) {
+            try {
+              if (window.localStorage.getItem('reminded_tour_phase_2_create_form') === null) {
+                window.localStorage.setItem('reminded_tour_phase_2_create_form', '1');
+              }
+            } catch {
+              // ignore
+            }
+          }
         } catch (err) {
           console.error(err);
         }
@@ -106,7 +118,10 @@ export default function StudentDashboard() {
       />
 
       {/* Study Now - Master Button */}
-      <section className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-2xl p-8 text-white shadow-xl relative overflow-hidden">
+      <section
+        id="tour-dashboard-hero"
+        className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-2xl p-8 text-white shadow-xl relative overflow-hidden"
+      >
         <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
         <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
           <div>
@@ -131,10 +146,12 @@ export default function StudentDashboard() {
       </section>
 
       {/* Courses */}
-      <section>
+      <section id="tour-dashboard-courses-section">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Your Courses</h2>
-          <Link href="/dashboard/student/create-course"
+          <Link
+            id="tour-dashboard-create-btn"
+            href="/dashboard/student/create-course"
             className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-5 rounded-xl shadow-md transition-all transform hover:scale-[1.03]"
           >
             + Create Course

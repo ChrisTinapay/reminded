@@ -505,7 +505,7 @@ export default function CourseLobby() {
       </div>
 
       {/* Hero Header with Editable Name */}
-      <div className="brand-card p-8 relative overflow-hidden">
+      <div id="tour-course-header" className="brand-card p-8 relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-600 to-violet-500"></div>
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div>
@@ -609,7 +609,7 @@ export default function CourseLobby() {
       </div>
 
       {/* Topics Section */}
-      <div>
+      <div id="tour-topics">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Topics</h2>
           <span className="text-sm text-gray-500 dark:text-gray-400 font-inter">{materials.length} topic{materials.length !== 1 ? 's' : ''}</span>
@@ -751,9 +751,12 @@ export default function CourseLobby() {
             ))}
           </div>
         ) : (
-          <div className="brand-surface rounded-lg shadow-sm border brand-border">
+          <div
+            id="tour-add-topic-card"
+            className="brand-surface rounded-lg shadow-sm border brand-border"
+          >
             <div className="p-4 border-b brand-border"><h2 className="text-lg font-bold font-poppins text-gray-800 dark:text-gray-100">Add New Topic</h2></div>
-            <div className="p-8">
+            <div id="tour-queue-status" className="p-8">
               {isGenerating ? (
                 <div className="text-center p-6 sm:p-10 space-y-3">
                   <div className="mx-auto w-full max-w-[520px] h-[420px] sm:h-[440px] md:h-[360px] mb-3">
@@ -805,7 +808,10 @@ export default function CourseLobby() {
                       </div>
                     </div>
                   ) : (
-                    <div className="border-2 border-dashed border-gray-300 dark:border-white/15 rounded-lg p-12 text-center hover:border-blue-500 dark:hover:border-indigo-400/40 hover:bg-blue-50 dark:hover:bg-indigo-500/10 transition cursor-pointer relative">
+                    <div
+                      id="tour-upload-btn"
+                      className="border-2 border-dashed border-gray-300 dark:border-white/15 rounded-lg p-12 text-center hover:border-blue-500 dark:hover:border-indigo-400/40 hover:bg-blue-50 dark:hover:bg-indigo-500/10 transition cursor-pointer relative"
+                    >
                       <input
                         type="file"
                         accept=".pdf"
