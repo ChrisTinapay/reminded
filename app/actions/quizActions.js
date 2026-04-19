@@ -131,8 +131,15 @@ export async function getGlobalDueQuestions(clientToday = null) {
 }
 
 
-// 2. Save Result (SM-2 Algorithm - Standard Implementation)
-export async function submitQuizResult(courseId, questionId, isCorrect, timeTaken, clientToday = null) {
+// 2. Save Result (SM-2 + immutable telemetry log)
+// Payload: { courseId, questionId, isCorrect, responseLatency, clientToday? }
+export async function submitQuizResult(payload) {
+  const courseId = payload?.courseId
+  const questionId = payload?.questionId
+  const isCorrect = payload?.isCorrect
+  const responseLatency = payload?.responseLatency
+  const clientToday = payload?.clientToday ?? null
+
   try {
     const { auth, spacedRepetitionService } = createQuizModule()
     const user = await auth.getCurrentUser()
@@ -146,13 +153,14 @@ export async function submitQuizResult(courseId, questionId, isCorrect, timeTake
       courseId: String(courseId),
       questionId: String(questionId),
       isCorrect: Boolean(isCorrect),
-      timeTakenSeconds: Number(timeTaken),
+      responseLatencySeconds: Number(responseLatency),
       clientToday,
     })
 
   } catch (err) {
-    console.error("CRITICAL: Turso Database Save Error:", err)
+    console.error("CRITICAL: Database Save Error:", err)
   }
 
   revalidatePath(`/dashboard/student/course/${courseId}`)
+  revalidatePath('/dashboard/student')
 }

@@ -45,7 +45,7 @@ export default function Sm2AlgorithmGuide() {
             <QualityCard
               tone="amber"
               title="4 — Solid"
-              condition="Correct, 11–20 seconds"
+              condition="Correct, &gt; 10 s and ≤ 20 s"
               body="Good recall with a short pause. EF changes modestly."
               efNote="EF +0.00 (from formula)"
             />
@@ -60,14 +60,13 @@ export default function Sm2AlgorithmGuide() {
               tone="red"
               title="0 — Wrong"
               condition="Incorrect"
-              body="Interval resets to 1 day and repetitions reset to 0. Your easiness factor (EF) stays the same — only successful reviews (q ≥ 3) change it."
+              body="Interval resets to 1 day and repetitions reset to 0. EF still updates using the formula with q = 0 (it usually decreases)."
               efNote="Interval → 1 day · reps → 0"
             />
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            Scheduling uses the seconds above. If the review screen shows different time hints (for example “fast” or
-            “slow” labels), those are encouragement only — what matters for spacing is your actual response time in
-            seconds.
+            Scheduling uses the seconds above (measured in the quiz from when the question finishes rendering until you
+            tap an answer). The on-screen timer reflects that same clock.
           </p>
         </section>
 
@@ -79,16 +78,16 @@ export default function Sm2AlgorithmGuide() {
             </p>
             <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Easiness factor (EF)</h3>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
-              Every question starts with <strong>EF = 2.5</strong>. After each <strong>successful</strong> review (
-              <strong>q ≥ 3</strong>), EF is updated. A <strong>higher EF</strong> means easier items — intervals grow
-              faster after the first two steps. A <strong>lower EF</strong> means harder items.{' '}
-              <strong>EF never drops below 1.3</strong>.
+              Every question starts with <strong>EF = 2.5</strong>. After <strong>every</strong> review, EF is updated
+              with the formula below using your quality <strong>q</strong>. A <strong>higher EF</strong> means easier
+              items — intervals grow faster after the first two successful steps. A <strong>lower EF</strong> means
+              harder items. <strong>EF never drops below 1.3</strong>.
             </p>
           </div>
 
           <div className="rounded-xl border brand-border bg-gray-50 dark:bg-white/5 px-4 py-5 text-center space-y-2">
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-              Easiness factor update (q ≥ 3)
+              Easiness factor update (every review)
             </p>
             <p className="font-mono text-sm sm:text-base text-gray-900 dark:text-gray-100 break-all">
               EF&apos; = EF + 0.1 − (5 − q) × (0.08 + (5 − q) × 0.02)

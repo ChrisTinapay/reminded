@@ -1,4 +1,4 @@
-import type { CourseId, MaterialId, Timestamp, UserId } from "../shared/types";
+import type { CourseId, UserId } from "../shared/types";
 import type { QuizRepository } from "../../ports/persistence/QuizRepository";
 import { updateSm2State } from "./Sm2Algorithm";
 
@@ -7,24 +7,25 @@ export interface SubmitReviewCommand {
   courseId: CourseId;
   questionId: string;
   isCorrect: boolean;
-  timeTakenSeconds: number;
+  /** Wall-clock seconds from question paint to answer click (float). */
+  responseLatencySeconds: number;
   clientToday?: string | null;
 }
 
 export class SpacedRepetitionService {
   constructor(private readonly quizRepository: QuizRepository) {}
 
-  calculateQuality(isCorrect: boolean, timeTakenSeconds: number): number {
+  calculateQuality(isCorrect: boolean, responseLatencySeconds: number): number {
     if (!isCorrect) return 0;
-    if (timeTakenSeconds <= 10) return 5;
-    if (timeTakenSeconds <= 20) return 4;
+    if (responseLatencySeconds <= 10) return 5;
+    if (responseLatencySeconds <= 20) return 4;
     return 3;
   }
 
   async submitReview(command: SubmitReviewCommand): Promise<void> {
     const quality = this.calculateQuality(
       command.isCorrect,
-      command.timeTakenSeconds,
+      command.responseLatencySeconds,
     );
 
     const previous = await this.quizRepository.getProgressState(
@@ -52,24 +53,17 @@ export class SpacedRepetitionService {
     const dd = String(baseDate.getDate()).padStart(2, "0");
     const nextReviewDate = `${yyyy}-${mm}-${dd}`;
 
-    await this.quizRepository.upsertProgress({
+    await this.quizRepository.persistReviewTransaction({
       userId: command.userId,
       courseId: command.courseId,
       questionId: command.questionId,
-      interval: updated.interval,
-      easeFactor: updated.easeFactor,
-      repetitions: updated.repetitions,
+      responseLatencySeconds: command.responseLatencySeconds,
+      isCorrect: command.isCorrect,
+      qualityScoreQ: quality,
+      repetitionN: updated.repetitions,
+      easinessFactorEf: updated.easeFactor,
+      nextIntervalI: updated.interval,
       nextReviewDate,
-    });
-
-    const reviewedAt: Timestamp =
-      command.clientToday ?? new Date().toISOString().substring(0, 10);
-    await this.quizRepository.saveReviewOutcome({
-      questionId: command.questionId,
-      userId: command.userId,
-      wasCorrect: command.isCorrect,
-      responseTimeMs: command.timeTakenSeconds * 1000,
-      reviewedAt,
     });
   }
 }

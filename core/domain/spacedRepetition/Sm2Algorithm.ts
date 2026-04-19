@@ -20,7 +20,11 @@ export function updateSm2State(input: Sm2UpdateInput): Sm2UpdateResult {
     prevReps = 0;
   }
 
-  let newEase = prevEase;
+  let newEase =
+    prevEase +
+    (0.1 - (5 - input.quality) * (0.08 + (5 - input.quality) * 0.02));
+  if (newEase < 1.3) newEase = 1.3;
+
   let newInterval = 0;
   let newReps = 0;
 
@@ -34,11 +38,6 @@ export function updateSm2State(input: Sm2UpdateInput): Sm2UpdateResult {
     }
 
     newReps = prevReps + 1;
-
-    newEase =
-      prevEase +
-      (0.1 - (5 - input.quality) * (0.08 + (5 - input.quality) * 0.02));
-    if (newEase < 1.3) newEase = 1.3;
   } else {
     newReps = 0;
     newInterval = 1;

@@ -2,7 +2,6 @@ import type {
   CourseId,
   MaterialId,
   QuestionId,
-  Timestamp,
   UserId,
 } from "../../domain/shared/types";
 
@@ -23,12 +22,17 @@ export interface StudentProgressState {
   repetitions: number;
 }
 
-export interface ReviewOutcome {
-  questionId: QuestionId;
+export interface PersistReviewTransactionInput {
   userId: UserId;
-  wasCorrect: boolean;
-  responseTimeMs: number;
-  reviewedAt: Timestamp;
+  courseId: CourseId;
+  questionId: QuestionId;
+  responseLatencySeconds: number;
+  isCorrect: boolean;
+  qualityScoreQ: number;
+  repetitionN: number;
+  easinessFactorEf: number;
+  nextIntervalI: number;
+  nextReviewDate: string;
 }
 
 export interface QuizRepository {
@@ -63,16 +67,6 @@ export interface QuizRepository {
     questionId: QuestionId,
   ): Promise<StudentProgressState | null>;
 
-  upsertProgress(input: {
-    userId: UserId;
-    courseId: CourseId;
-    questionId: QuestionId;
-    interval: number;
-    easeFactor: number;
-    repetitions: number;
-    nextReviewDate: string;
-  }): Promise<void>;
-
-  saveReviewOutcome(outcome: ReviewOutcome): Promise<void>;
+  persistReviewTransaction(input: PersistReviewTransactionInput): Promise<void>;
 }
 

@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useState, useEffect, useMemo } from 'react'
+import { useParams, useSearchParams } from 'next/navigation'
 import { getDueQuestions, submitQuizResult } from '@/app/actions/quizActions'
+import { useReviewLatencyClock } from '@/hooks/useReviewLatencyClock'
 
 export default function ReviewSession() {
   const params = useParams()
-  const router = useRouter()
   const searchParams = useSearchParams()
   const courseId = params.courseId
   const materialId = searchParams.get('materialId')
@@ -23,12 +23,20 @@ export default function ReviewSession() {
   const [isAnswered, setIsAnswered] = useState(false)
   const [feedback, setFeedback] = useState(null) // 'correct' or 'wrong'
 
-  // Timer State
-  const [timer, setTimer] = useState(0)
-  const timerRef = useRef(null)
+  const localToday = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD in user's timezone
+
+  const currentQ = questions[currentIndex]
+  const questionKey = useMemo(
+    () => `${currentIndex}-${currentQ?.id ?? ''}`,
+    [currentIndex, currentQ?.id],
+  )
+  const clockEnabled = !loading && !sessionComplete && !isAnswered && questions.length > 0
+  const { displaySeconds, stopAndGetLatencySeconds } = useReviewLatencyClock({
+    enabled: clockEnabled,
+    questionKey,
+  })
 
   // 1. Initialize Session
-  const localToday = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD in user's timezone
   useEffect(() => {
     const init = async () => {
       const { questions: qData } = await getDueQuestions(courseId, materialId, localToday)
@@ -40,36 +48,27 @@ export default function ReviewSession() {
     init()
   }, [courseId, materialId])
 
-  // 2. Timer Logic (Starts when question appears)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (!loading && !sessionComplete && !isAnswered && questions.length > 0) {
-      setTimer(0) // Reset timer
-      timerRef.current = setInterval(() => {
-        setTimer(prev => prev + 1)
-      }, 1000)
-    }
-    return () => clearInterval(timerRef.current)
-  }, [currentIndex, isAnswered, loading, sessionComplete, questions.length])
-
   // 3. Handle Answer
   const handleAnswer = async (choice) => {
     if (isAnswered) return
 
-    // Stop Timer
-    clearInterval(timerRef.current)
-    const timeTaken = timer
+    const responseLatency = stopAndGetLatencySeconds()
 
     setIsAnswered(true)
     setSelectedChoice(choice)
 
-    const currentQ = questions[currentIndex]
-    const isCorrect = choice === currentQ.correct_answer
+    const q = questions[currentIndex]
+    const isCorrect = choice === q.correct_answer
 
     setFeedback(isCorrect ? 'correct' : 'wrong')
 
-    // 4. Send to Server (Background)
-    await submitQuizResult(courseId, currentQ.id, isCorrect, timeTaken, localToday)
+    await submitQuizResult({
+      courseId,
+      questionId: q.id,
+      isCorrect,
+      responseLatency,
+      clientToday: localToday,
+    })
   }
 
   // 5. Next Question
@@ -79,7 +78,6 @@ export default function ReviewSession() {
       setIsAnswered(false)
       setSelectedChoice(null)
       setFeedback(null)
-      setTimer(0)
     } else {
       setSessionComplete(true)
     }
@@ -110,8 +108,6 @@ export default function ReviewSession() {
     )
   }
 
-  const currentQ = questions[currentIndex]
-
   return (
     <div className="min-h-screen bg-transparent pb-32 md:pb-0">
       {/* Desktop: centered card */} 
@@ -132,8 +128,8 @@ export default function ReviewSession() {
                   )}
                 </div>
               </div>
-              <div className={`shrink-0 text-sm font-mono font-bold px-3 py-1 rounded-full transition-colors ${timer < 5 ? 'bg-green-100 text-green-700' : timer < 12 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
-                {timer}s
+              <div className={`shrink-0 text-sm font-mono font-bold px-3 py-1 rounded-full transition-colors ${displaySeconds < 10 ? 'bg-green-100 text-green-700' : displaySeconds < 20 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
+                {displaySeconds.toFixed(1)}s
               </div>
             </div>
 
@@ -182,9 +178,9 @@ export default function ReviewSession() {
                   <span className="text-xs text-gray-600 dark:text-gray-300">
                     {!isAnswered ? 'After you answer, “Next Question” will appear here.' : (
                       <>
-                        {feedback === 'correct' && timer <= 5 && "⚡ Super fast! (+5 Quality)"}
-                        {feedback === 'correct' && timer > 5 && timer <= 12 && "👍 Good pace! (+4 Quality)"}
-                        {feedback === 'correct' && timer > 12 && "🐢 A bit slow. (+3 Quality)"}
+                        {feedback === 'correct' && displaySeconds <= 10 && "⚡ Super fast! (+5 Quality)"}
+                        {feedback === 'correct' && displaySeconds > 10 && displaySeconds <= 20 && "👍 Good pace! (+4 Quality)"}
+                        {feedback === 'correct' && displaySeconds > 20 && "🐢 A bit slow. (+3 Quality)"}
                         {feedback === 'wrong' && "Resetting progress."}
                       </>
                     )}
@@ -216,8 +212,8 @@ export default function ReviewSession() {
               <span className="text-xs font-bold text-orange-600">Review</span>
             )}
           </div>
-          <div className={`text-sm font-mono font-bold px-3 py-1 rounded-full transition-colors ${timer < 5 ? 'bg-green-100 text-green-700' : timer < 12 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
-            {timer}s
+          <div className={`text-sm font-mono font-bold px-3 py-1 rounded-full transition-colors ${displaySeconds < 10 ? 'bg-green-100 text-green-700' : displaySeconds < 20 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
+            {displaySeconds.toFixed(1)}s
           </div>
         </div>
 
@@ -268,9 +264,9 @@ export default function ReviewSession() {
                   {feedback === 'correct' ? 'Correct!' : 'Incorrect'}
                 </span>
                 <span className="text-xs text-gray-600 dark:text-gray-300">
-                  {feedback === 'correct' && timer <= 5 && "⚡ Super fast! (+5 Quality)"}
-                  {feedback === 'correct' && timer > 5 && timer <= 12 && "👍 Good pace! (+4 Quality)"}
-                  {feedback === 'correct' && timer > 12 && "🐢 A bit slow. (+3 Quality)"}
+                  {feedback === 'correct' && displaySeconds <= 10 && "⚡ Super fast! (+5 Quality)"}
+                  {feedback === 'correct' && displaySeconds > 10 && displaySeconds <= 20 && "👍 Good pace! (+4 Quality)"}
+                  {feedback === 'correct' && displaySeconds > 20 && "🐢 A bit slow. (+3 Quality)"}
                   {feedback === 'wrong' && "Resetting progress."}
                 </span>
               </div>

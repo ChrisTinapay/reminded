@@ -1,7 +1,7 @@
 import type {
   DueQuestion,
   QuizRepository,
-  ReviewOutcome,
+  PersistReviewTransactionInput,
   StudentProgressState,
 } from "../../../ports/persistence/QuizRepository";
 import type { CourseId, MaterialId, QuestionId, UserId } from "../../../domain/shared/types";
@@ -121,7 +121,7 @@ export class SupabaseQuizRepository implements QuizRepository {
     const supabase = createAdminClient();
     const { data, error } = await supabase
       .from("student_progress")
-      .select("interval,ease_factor")
+      .select("interval,ease_factor,repetition_n")
       .eq("user_id", userId)
       .eq("question_id", Number(questionId))
       .maybeSingle();
@@ -129,40 +129,25 @@ export class SupabaseQuizRepository implements QuizRepository {
     if (!data) return null;
     const interval = Number((data as any).interval ?? 0);
     const easeFactor = Number((data as any).ease_factor ?? 2.5);
-
-    let repetitions = 0;
-    if (interval === 1) repetitions = 1;
-    else if (interval >= 6) repetitions = 2;
+    const repetitions = Number((data as any).repetition_n ?? 0);
 
     return { interval, easeFactor, repetitions };
   }
 
-  async upsertProgress(input: {
-    userId: UserId;
-    courseId: CourseId;
-    questionId: QuestionId;
-    interval: number;
-    easeFactor: number;
-    repetitions: number;
-    nextReviewDate: string;
-  }): Promise<void> {
+  async persistReviewTransaction(input: PersistReviewTransactionInput): Promise<void> {
     const supabase = createAdminClient();
-    const { error } = await supabase.from("student_progress").upsert(
-      {
-        user_id: input.userId,
-        course_id: Number(input.courseId),
-        question_id: Number(input.questionId),
-        interval: input.interval,
-        ease_factor: input.easeFactor,
-        next_review_date: input.nextReviewDate,
-      },
-      { onConflict: "user_id,question_id" },
-    );
+    const { error } = await supabase.rpc("apply_review_with_telemetry", {
+      p_user_id: input.userId,
+      p_course_id: Number(input.courseId),
+      p_question_id: Number(input.questionId),
+      p_response_latency: input.responseLatencySeconds,
+      p_is_correct: input.isCorrect,
+      p_quality_score_q: input.qualityScoreQ,
+      p_repetition_n: input.repetitionN,
+      p_easiness_factor_ef: input.easinessFactorEf,
+      p_next_interval_i: input.nextIntervalI,
+      p_next_review_date: input.nextReviewDate,
+    });
     if (error) throw error;
   }
-
-  async saveReviewOutcome(_outcome: ReviewOutcome): Promise<void> {
-    // No-op: only student_progress is persisted today.
-  }
 }
-
