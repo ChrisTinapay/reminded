@@ -6,6 +6,7 @@ import { supabase } from './_lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import ThemeToggle from './_components/ThemeToggle';
+import Link from 'next/link';
 
 export default function Welcome() {
   const router = useRouter();
@@ -64,15 +65,17 @@ export default function Welcome() {
     <div className="brand-background flex flex-col items-center justify-center min-h-screen p-6 text-center">
       <ThemeToggle />
       <div className="mb-12 md:mb-16">
-        <Image
-          src="/logo.png"
-          alt="RemindED Logo"
-          width={200}
-          height={200}
-          className="w-[150px] h-auto md:w-[200px]"
-          style={{ height: 'auto' }}
-          priority
-        />
+        <Link href="https://www.reminded.site/landing" target="_blank" rel="noopener noreferrer">
+          <Image
+            src="/logo.png"
+            alt="RemindED Logo"
+            width={200}
+            height={200}
+            className="w-[150px] h-auto md:w-[200px] cursor-pointer"
+            style={{ height: 'auto' }}
+            priority
+          />
+        </Link>
       </div>
 
       {nextPath ? (

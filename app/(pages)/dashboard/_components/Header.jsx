@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/app/_lib/supabaseClient';
 import ThemeToggle from '@/app/_components/ThemeToggle';
 import { getTursoProfile } from '@/app/actions/profiles';
+import Link from 'next/link';
 
 export default function Header() {
   const [fullName, setFullName] = useState('');
@@ -79,12 +80,14 @@ export default function Header() {
       {/* Mobile Header */}
       <header className="md:hidden flex items-center justify-between px-4 py-3 brand-background border-b brand-border">
         <div className="flex items-center gap-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo.png"
-            alt="RemindED"
-            className="h-8 w-8"
-          />
+          <Link href="https://www.reminded.site/landing" target="_blank" rel="noopener noreferrer" aria-label="ReMindED Landing">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.png"
+              alt="RemindED"
+              className="h-8 w-8 cursor-pointer"
+            />
+          </Link>
           <span className="text-lg font-bold font-poppins bg-linear-to-r from-brand-l via-brand-v to-brand-r bg-clip-text text-transparent">
             RemindED
           </span>

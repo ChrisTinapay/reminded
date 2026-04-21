@@ -131,12 +131,14 @@ export default function NavigationBar() {
       >
         {/* Logo */}
         <div className={`flex items-center py-5 ${isCollapsed ? 'justify-center px-2' : 'justify-center px-4'}`}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            className={`transition-all duration-200 ${isCollapsed ? 'h-10 w-10' : 'h-24 w-24'}`}
-            src="/logo.png"
-            alt="RemindED"
-          />
+          <Link href="https://www.reminded.site/landing" target="_blank" rel="noopener noreferrer" aria-label="ReMindED Landing">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              className={`transition-all duration-200 ${isCollapsed ? 'h-10 w-10' : 'h-24 w-24'} cursor-pointer`}
+              src="/logo.png"
+              alt="RemindED"
+            />
+          </Link>
         </div>
 
         {/* Nav Links */}
