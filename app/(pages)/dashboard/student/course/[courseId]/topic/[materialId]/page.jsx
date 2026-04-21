@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { fetchCourseDetails, fetchLearningMaterials, deleteLearningMaterial, updateTopicName, checkTopicHasProgress } from '@/app/actions/courses'
+import { fetchCourseDetails, deleteLearningMaterial, updateTopicName, checkTopicHasProgress } from '@/app/actions/courses'
 import { fetchQuestionsByMaterial, updateQuestion, deleteQuestion } from '@/app/actions/questions'
-import { getSignedMaterialUrl } from '@/app/actions/materials'
+import { getMaterialWithSignedUrl } from '@/app/actions/materials'
+import ConfirmDialog from '@/app/components/ConfirmDialog'
 
 export default function TopicManagement() {
     const params = useParams()
@@ -32,30 +33,35 @@ export default function TopicManagement() {
     const [hasProgress, setHasProgress] = useState(false)
     const [materialUrl, setMaterialUrl] = useState(null)
 
+    // Delete topic modal
+    const [showDeleteMaterialDialog, setShowDeleteMaterialDialog] = useState(false)
+    const [deletingMaterial, setDeletingMaterial] = useState(false)
+
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const course = await fetchCourseDetails(courseId)
+                // Run the slow stuff in parallel:
+                // - course name (breadcrumb)
+                // - questions (editor)
+                // - progress lock (editor)
+                // - material metadata + signed URL (PDF card)
+                const [course, qData, progressStatus, matRes] = await Promise.all([
+                    fetchCourseDetails(courseId),
+                    fetchQuestionsByMaterial(materialId),
+                    checkTopicHasProgress(materialId),
+                    getMaterialWithSignedUrl(materialId),
+                ])
+
                 if (course) setCourseName(course.course_name)
 
-                const materials = await fetchLearningMaterials(courseId)
-                const currentMat = materials.find(m => String(m.id) === String(materialId))
-                if (currentMat) {
-                    setMaterial(currentMat)
-                    setEditedTopicName(currentMat.topic_name)
+                if (matRes?.success && matRes?.material) {
+                    setMaterial(matRes.material)
+                    setEditedTopicName(matRes.material.topic_name)
+                    if (matRes.url) setMaterialUrl(matRes.url)
                 }
 
-                const [qData, progressStatus] = await Promise.all([
-                    fetchQuestionsByMaterial(materialId),
-                    checkTopicHasProgress(materialId)
-                ])
                 setQuestions(qData)
-                setHasProgress(progressStatus)
-
-                if (currentMat?.id) {
-                    const urlRes = await getSignedMaterialUrl(currentMat.id)
-                    if (urlRes?.success) setMaterialUrl(urlRes.url)
-                }
+                setHasProgress(Boolean(progressStatus))
             } catch (err) {
                 console.error("Failed to fetch topic data:", err)
             }
@@ -90,12 +96,15 @@ export default function TopicManagement() {
 
     // --- Delete Material ---
     const handleDeleteMaterial = async () => {
-        if (!confirm('Delete this learning material? This will also delete all associated questions permanently.')) return
         try {
+            setDeletingMaterial(true)
             await deleteLearningMaterial(materialId)
             router.push(`/dashboard/student/course/${courseId}`)
         } catch (err) {
             alert('Error deleting: ' + err.message)
+        } finally {
+            setDeletingMaterial(false)
+            setShowDeleteMaterialDialog(false)
         }
     }
 
@@ -150,6 +159,21 @@ export default function TopicManagement() {
 
     return (
         <div className="p-6 max-w-5xl mx-auto space-y-8">
+
+            <ConfirmDialog
+                open={showDeleteMaterialDialog}
+                title="Delete learning material?"
+                description="This will also delete all associated questions permanently."
+                confirmText="Delete"
+                cancelText="Cancel"
+                tone="danger"
+                busy={deletingMaterial}
+                onClose={() => {
+                    if (deletingMaterial) return
+                    setShowDeleteMaterialDialog(false)
+                }}
+                onConfirm={handleDeleteMaterial}
+            />
 
             {/* QE Warning Modal */}
             {showQEWarning && (
@@ -266,7 +290,7 @@ export default function TopicManagement() {
                         </div>
                     </a>
                     <button
-                        onClick={handleDeleteMaterial}
+                        onClick={() => setShowDeleteMaterialDialog(true)}
                         className="ml-4 flex-shrink-0 flex items-center gap-2 py-2 px-4 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors border border-red-200 dark:bg-red-500/10 dark:border-red-500/30 dark:text-red-200 dark:hover:bg-red-500/15"
                     >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

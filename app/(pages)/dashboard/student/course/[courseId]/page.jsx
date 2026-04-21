@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { supabase } from '@/app/_lib/supabaseClient'
 import { uploadMaterialToStorage } from '@/app/actions/generateQuestions'
@@ -10,8 +11,16 @@ import { distributeAnswerPositions } from '@/lib/llm/distributeAnswerPositions'
 import { saveQuestion } from '@/app/actions/questions'
 import { fetchCoursePageData, saveLearningMaterial, fetchLearningMaterials, deleteLearningMaterial, updateCourseName, updateTopicName, deleteCourse } from '@/app/actions/courses'
 import CriticalMassGame from '@/app/components/CriticalMassGame'
-import PdfPageSelector from '@/app/components/PdfPageSelector'
 import ConfirmDialog from '@/app/components/ConfirmDialog'
+
+const PdfPageSelector = dynamic(() => import('@/app/components/PdfPageSelector'), {
+  ssr: false,
+  loading: () => (
+    <div className="brand-card p-4 sm:p-5 text-sm text-gray-500 dark:text-gray-400">
+      Loading PDF tools…
+    </div>
+  ),
+})
 
 export default function CourseLobby() {
   const params = useParams()
@@ -453,6 +462,13 @@ export default function CourseLobby() {
     setJobStatus('pending')
   }
 
+  // Global "Due" must be derived from per-topic due counts to avoid drift.
+  // NOTE: Hooks must be declared before any early returns (Rules of Hooks).
+  const computedDue = useMemo(() => {
+    if (!Array.isArray(materials) || !topicDue) return 0
+    return materials.reduce((sum, mat) => sum + (Number(topicDue?.[mat.id]) || 0), 0)
+  }, [materials, topicDue])
+
   if (loading) return <div className="p-12 text-center text-gray-500 dark:text-gray-400 font-inter">Loading course data...</div>
   if (!course) return <div className="p-12 text-center text-gray-700 dark:text-gray-300 font-inter">Course not found.</div>
 
@@ -567,7 +583,7 @@ export default function CourseLobby() {
               </svg>
               Delete course
             </button>
-            {stats.due > 0 ? (
+            {computedDue > 0 ? (
               <Link
                 href={`/dashboard/student/course/${courseId}/review?topic=${encodeURIComponent(course.course_name + ' — All Topics')}`}
                 className="group relative inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-all transform hover:scale-105"
@@ -576,7 +592,7 @@ export default function CourseLobby() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <span>Review {course.course_name} ({stats.due} Due)</span>
+                <span>Review {course.course_name} ({computedDue} Due)</span>
               </Link>
             ) : (
               <div className="inline-flex items-center justify-center bg-green-100 text-green-700 font-bold py-3 px-8 rounded-full dark:bg-green-500/10 dark:text-green-200 dark:border dark:border-green-500/30">
@@ -603,7 +619,7 @@ export default function CourseLobby() {
         </div>
         <div className="bg-orange-50 dark:bg-orange-500/10 p-6 rounded-xl border border-orange-100 dark:border-orange-500/20 flex flex-col items-center">
           <h3 className="text-orange-800 dark:text-orange-200 font-semibold mb-1 text-sm uppercase tracking-wide">Due for Review</h3>
-          <p className="text-4xl font-black text-orange-900 dark:text-orange-100">{stats.due}</p>
+          <p className="text-4xl font-black text-orange-900 dark:text-orange-100">{computedDue}</p>
           <p className="text-xs text-orange-700 dark:text-orange-200/80 mt-2">Needs Attention</p>
         </div>
       </div>

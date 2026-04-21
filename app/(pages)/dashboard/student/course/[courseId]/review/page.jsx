@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import { getDueQuestions, submitQuizResult } from '@/app/actions/quizActions'
 import { useReviewLatencyClock } from '@/hooks/useReviewLatencyClock'
@@ -36,8 +36,29 @@ export default function ReviewSession() {
     questionKey,
   })
 
+  const didInitRef = useRef(false)
+
+  // Prevent accidentally leaving mid-session (refresh/close).
+  useEffect(() => {
+    if (loading || sessionComplete || questions.length === 0) return
+
+    const onBeforeUnload = (e) => {
+      e.preventDefault()
+      e.returnValue = ''
+      return ''
+    }
+
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [loading, sessionComplete, questions.length])
+
   // 1. Initialize Session
   useEffect(() => {
+    // In development, React may run effects twice. Guard so the question/choice
+    // randomization doesn't "swap" after the user already sees question 1.
+    if (didInitRef.current) return
+    didInitRef.current = true
+
     const init = async () => {
       const { questions: qData } = await getDueQuestions(courseId, materialId, localToday)
       if (qData && qData.length > 0) {
