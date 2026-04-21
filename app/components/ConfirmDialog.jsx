@@ -49,7 +49,7 @@ export default function ConfirmDialog({
         aria-modal="true"
         className="relative w-full max-w-md brand-card overflow-hidden shadow-2xl"
       >
-        <div className="h-1.5 bg-gradient-to-r from-indigo-600 to-violet-500" />
+        <div className="h-1.5 bg-brand-gradient" />
 
         <div className="p-6">
           <div className="flex items-start gap-4">

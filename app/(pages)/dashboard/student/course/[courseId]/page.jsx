@@ -522,7 +522,7 @@ export default function CourseLobby() {
 
       {/* Hero Header with Editable Name */}
       <div id="tour-course-header" className="brand-card p-8 relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-600 to-violet-500"></div>
+        <div className="absolute top-0 left-0 w-full h-2 bg-brand-gradient"></div>
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div>
             {isEditingName ? (
@@ -635,7 +635,7 @@ export default function CourseLobby() {
           <div className="space-y-5 mb-8">
             {materials.map((mat) => (
               <div key={`topic-${mat.id}`} className="brand-card overflow-hidden hover:shadow-md transition-all">
-                <div className="h-1.5 bg-gradient-to-r from-indigo-500 to-violet-400"></div>
+                <div className="h-1.5 bg-brand-gradient"></div>
                 <div className="p-6">
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex-1 min-w-0">

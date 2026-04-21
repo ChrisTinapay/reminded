@@ -121,7 +121,7 @@ export default function StudentDashboard() {
       {/* Study Now - Master Button */}
       <section
         id="tour-dashboard-hero"
-        className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-2xl p-8 text-white shadow-xl relative overflow-hidden"
+        className="bg-brand-gradient rounded-2xl p-8 text-white shadow-xl relative overflow-hidden"
       >
         <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
         <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
@@ -166,7 +166,7 @@ export default function StudentDashboard() {
                 key={course.id}
                 className="group brand-card overflow-hidden hover:shadow-lg transition-all relative"
               >
-                <div className="h-2 bg-gradient-to-r from-indigo-500 to-violet-400" />
+                <div className="h-2 bg-brand-gradient" />
                 <button
                   type="button"
                   onClick={() => requestDeleteCourse(course)}

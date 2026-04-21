@@ -3,7 +3,7 @@
 export default function Sm2AlgorithmGuide() {
   return (
     <div className="brand-card overflow-hidden">
-      <div className="h-1 bg-gradient-to-r from-indigo-600 to-violet-500" />
+      <div className="h-1 bg-brand-gradient" />
       <div className="p-6 sm:p-8 space-y-10 max-w-4xl mx-auto">
         <header className="space-y-2">
           <p className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-300">
@@ -209,7 +209,7 @@ function GrowthRow({ label, value, note, widthPct }) {
       <div className="flex-1 min-w-0">
         <div className="h-9 rounded-lg bg-gray-100 dark:bg-white/10 overflow-hidden">
           <div
-            className="h-full min-w-[2.75rem] max-w-full rounded-lg bg-gradient-to-r from-indigo-600 to-violet-500 flex items-center justify-center px-1.5"
+            className="h-full min-w-[2.75rem] max-w-full rounded-lg bg-brand-gradient flex items-center justify-center px-1.5"
             style={{ width: `${widthPct}%` }}
           >
             <span className="text-xs font-bold text-white drop-shadow-sm whitespace-nowrap">{value}</span>

@@ -573,9 +573,9 @@ export default function CriticalMassGame({
           const gx = gaugeCx - r;
           const gy = gaugeCy - r;
           const grad = ctx.createLinearGradient(gx, gy, gx + 2 * r, gy + 2 * r);
-          grad.addColorStop(0.0, "rgba(99, 102, 241, 0.95)"); // indigo
-          grad.addColorStop(0.55, "rgba(167, 139, 250, 0.95)"); // violet
-          grad.addColorStop(1.0, "rgba(45, 212, 191, 0.85)"); // teal
+          grad.addColorStop(0.0, "rgba(44, 29, 120, 0.95)");
+          grad.addColorStop(0.5, "rgba(154, 135, 198, 0.95)");
+          grad.addColorStop(1.0, "rgba(73, 155, 172, 0.9)");
 
           ctx.beginPath();
           ctx.arc(gaugeCx, gaugeCy, r, a0, endA);
@@ -590,7 +590,7 @@ export default function CriticalMassGame({
           const pulse = 0.55 + 0.45 * Math.sin(now / 140);
           ctx.beginPath();
           ctx.arc(sx, sy, (6 + 3 * pulse) * s.dpr, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(167, 139, 250, ${0.35 + 0.35 * pulse})`;
+          ctx.fillStyle = `rgba(154, 135, 198, ${0.35 + 0.35 * pulse})`;
           ctx.fill();
         }
 

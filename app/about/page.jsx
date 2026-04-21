@@ -130,27 +130,22 @@ export default function AboutPage() {
         {
             title: 'AI-Powered Questions',
             desc: 'No more spending hours making flashcards. Our AI reads your material and creates quiz questions in seconds — not minutes.',
-            gradient: 'from-violet-500 to-indigo-500',
         },
         {
             title: 'Speed-Aware Grading',
             desc: 'We don\'t just check right or wrong. A fast, confident answer and a slow, hesitant guess are graded differently — for smarter scheduling.',
-            gradient: 'from-indigo-500 to-cyan-500',
         },
         {
             title: 'Personalized Scheduling',
             desc: 'Every student gets a unique review calendar based on their actual performance. The system adapts to YOUR brain, not the other way around.',
-            gradient: 'from-cyan-500 to-teal-500',
         },
         {
             title: 'Works Everywhere',
             desc: 'Phone, tablet, laptop — any device with a browser. No downloads, no installations. Just open and study.',
-            gradient: 'from-emerald-500 to-lime-500',
         },
         {
             title: 'Beautiful Study Calendar',
             desc: 'See your entire review plan at a glance. Know exactly what\'s coming up, for which course, on which day.',
-            gradient: 'from-amber-500 to-orange-500',
         },
     ];
 
@@ -161,7 +156,7 @@ export default function AboutPage() {
                 <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
                     <Link href="/" className="flex items-center gap-3 group">
                         <Image src="/logo.png" alt="RemindED" width={36} height={36} className="group-hover:scale-110 transition-transform duration-300" />
-                        <span className="font-poppins font-bold text-lg bg-gradient-to-r from-indigo-600 via-purple-500 to-teal-400 bg-clip-text text-transparent">
+                        <span className="font-poppins font-bold text-lg text-brand-gradient">
                             RemindED
                         </span>
                     </Link>
@@ -169,7 +164,7 @@ export default function AboutPage() {
                         <ThemeToggle />
                         <Link
                             href="/"
-                            className="px-5 py-2 rounded-full text-sm font-inter font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 transition-all duration-300 shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:scale-105"
+                            className="px-5 py-2 rounded-full text-sm font-inter font-semibold text-white bg-brand-gradient hover:brightness-110 transition-all duration-300 shadow-lg shadow-[#2C1D78]/25 hover:shadow-[#2C1D78]/35 hover:scale-105"
                         >
                             Get Started
                         </Link>
@@ -181,8 +176,8 @@ export default function AboutPage() {
             <section className="relative pt-32 pb-20 md:pt-44 md:pb-32 px-6">
                 {/* Animated background gradient */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                    <div className="absolute -top-40 -right-40 w-[500px] h-[500px] rounded-full bg-gradient-to-br from-indigo-400/20 to-purple-500/20 blur-3xl animate-pulse" />
-                    <div className="absolute -bottom-40 -left-40 w-[400px] h-[400px] rounded-full bg-gradient-to-br from-teal-400/15 to-cyan-500/15 blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+                    <div className="absolute -top-40 -right-40 w-[500px] h-[500px] rounded-full bg-gradient-to-br from-[#2C1D78]/20 via-[#9A87C6]/15 to-[#499BAC]/20 blur-3xl animate-pulse" />
+                    <div className="absolute -bottom-40 -left-40 w-[400px] h-[400px] rounded-full bg-gradient-to-br from-[#499BAC]/15 via-[#9A87C6]/12 to-[#2C1D78]/18 blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
                 </div>
 
                 <div className="relative max-w-4xl mx-auto text-center">
@@ -195,7 +190,7 @@ export default function AboutPage() {
 
                     <h1 className="font-poppins font-bold text-4xl md:text-6xl lg:text-7xl leading-tight brand-primary mb-6">
                         Study smarter.{' '}
-                        <span className="bg-gradient-to-r from-indigo-600 via-purple-500 to-teal-400 bg-clip-text text-transparent">
+                        <span className="text-brand-gradient">
                             Remember longer.
                         </span>
                     </h1>
@@ -207,7 +202,7 @@ export default function AboutPage() {
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
                         <Link
                             href="/"
-                            className="px-8 py-3.5 rounded-xl text-base font-inter font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 transition-all duration-300 shadow-xl shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:scale-105 hover:-translate-y-0.5"
+                            className="px-8 py-3.5 rounded-xl text-base font-inter font-semibold text-white bg-brand-gradient hover:brightness-110 transition-all duration-300 shadow-xl shadow-[#2C1D78]/30 hover:shadow-[#2C1D78]/45 hover:scale-105 hover:-translate-y-0.5"
                         >
                             Start Studying for Free →
                         </Link>
@@ -216,10 +211,10 @@ export default function AboutPage() {
             </section>
 
             {/* Stats Section */}
-            <section className="py-16 px-6 border-y border-neutral-200/50 dark:border-neutral-700/30 bg-gradient-to-b from-transparent via-indigo-50/30 dark:via-indigo-950/10 to-transparent">
+            <section className="py-16 px-6 border-y border-neutral-200/50 dark:border-neutral-700/30 bg-gradient-to-b from-transparent via-[#9A87C6]/12 dark:via-[#2C1D78]/15 to-transparent">
                 <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
                     <div ref={stat1.ref}>
-                        <div className="font-poppins font-bold text-5xl md:text-6xl bg-gradient-to-r from-indigo-600 to-purple-500 bg-clip-text text-transparent">
+                        <div className="font-poppins font-bold text-5xl md:text-6xl text-brand-gradient">
                             {stat1.count}%
                         </div>
                         <p className="mt-2 text-sm font-inter text-gray-500 dark:text-gray-400">
@@ -227,7 +222,7 @@ export default function AboutPage() {
                         </p>
                     </div>
                     <div ref={stat2.ref}>
-                        <div className="font-poppins font-bold text-5xl md:text-6xl bg-gradient-to-r from-purple-500 to-teal-400 bg-clip-text text-transparent">
+                        <div className="font-poppins font-bold text-5xl md:text-6xl text-brand-gradient">
                             {stat2.count}s
                         </div>
                         <p className="mt-2 text-sm font-inter text-gray-500 dark:text-gray-400">
@@ -235,7 +230,7 @@ export default function AboutPage() {
                         </p>
                     </div>
                     <div ref={stat3.ref}>
-                        <div className="font-poppins font-bold text-5xl md:text-6xl bg-gradient-to-r from-teal-400 to-emerald-500 bg-clip-text text-transparent">
+                        <div className="font-poppins font-bold text-5xl md:text-6xl text-brand-gradient">
                             {stat3.count}
                         </div>
                         <p className="mt-2 text-sm font-inter text-gray-500 dark:text-gray-400">
@@ -300,7 +295,7 @@ export default function AboutPage() {
             </section>
 
             {/* How It Works Section */}
-            <section className="py-20 md:py-28 px-6 bg-gradient-to-b from-indigo-50/50 dark:from-indigo-950/10 to-transparent">
+            <section className="py-20 md:py-28 px-6 bg-gradient-to-b from-[#9A87C6]/8 dark:from-[#2C1D78]/12 to-transparent">
                 <div className="max-w-5xl mx-auto">
                     <FadeInSection>
                         <div className="text-center mb-16">
@@ -322,7 +317,7 @@ export default function AboutPage() {
                                         {step.num}
                                     </span>
 
-                                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white mb-5 shadow-lg shadow-indigo-500/25 group-hover:scale-110 transition-transform duration-300">
+                                    <div className="w-14 h-14 rounded-2xl bg-brand-gradient-br flex items-center justify-center text-white mb-5 shadow-lg shadow-[#2C1D78]/25 group-hover:scale-110 transition-transform duration-300">
                                         {step.icon}
                                     </div>
 
@@ -343,7 +338,7 @@ export default function AboutPage() {
             <section className="py-20 md:py-28 px-6">
                 <div className="max-w-4xl mx-auto">
                     <FadeInSection>
-                        <div className="relative p-8 md:p-12 rounded-3xl bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-700 text-white overflow-hidden">
+                        <div className="relative p-8 md:p-12 rounded-3xl bg-brand-gradient-br text-white overflow-hidden">
                             {/* Decorative elements */}
                             <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-white/5 -translate-y-1/2 translate-x-1/2" />
                             <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full bg-white/5 translate-y-1/3 -translate-x-1/3" />
@@ -403,7 +398,7 @@ export default function AboutPage() {
                         {features.map((feature, i) => (
                             <FadeInSection key={feature.title} delay={i * 100}>
                                 <div className="group p-6 rounded-2xl bg-white/60 dark:bg-neutral-800/40 border border-neutral-200/60 dark:border-neutral-700/40 backdrop-blur-sm hover:border-indigo-300 dark:hover:border-indigo-600 transition-all duration-500 hover:shadow-xl hover:shadow-indigo-500/5 hover:-translate-y-1 h-full">
-                                    <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center text-white mb-4 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                                    <div className="w-10 h-10 rounded-xl bg-brand-gradient-br flex items-center justify-center text-white mb-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
                                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                                         </svg>
@@ -439,7 +434,7 @@ export default function AboutPage() {
                                     <tr className="bg-neutral-100/80 dark:bg-neutral-800/60">
                                         <th className="p-4 text-left font-poppins font-semibold brand-primary text-sm"></th>
                                         <th className="p-4 text-center font-poppins font-semibold text-gray-400 text-sm">Traditional</th>
-                                        <th className="p-4 text-center font-poppins font-semibold text-sm bg-gradient-to-r from-indigo-600 to-purple-500 bg-clip-text text-transparent">RemindED</th>
+                                        <th className="p-4 text-center font-poppins font-semibold text-sm text-brand-gradient">RemindED</th>
                                     </tr>
                                 </thead>
                                 <tbody className="font-inter text-sm">
@@ -479,14 +474,14 @@ export default function AboutPage() {
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {[
-                            { name: 'Google Gemini', role: 'AI Engine', color: 'from-blue-500 to-cyan-500' },
-                            { name: 'Next.js', role: 'Web Framework', color: 'from-gray-700 to-gray-900' },
-                            { name: 'Supabase', role: 'Auth & Storage', color: 'from-emerald-500 to-green-600' },
-                            { name: 'Turso', role: 'Database', color: 'from-teal-500 to-cyan-600' },
+                            { name: 'Google Gemini', role: 'AI Engine' },
+                            { name: 'Next.js', role: 'Web Framework' },
+                            { name: 'Supabase', role: 'Auth & Storage' },
+                            { name: 'Turso', role: 'Database' },
                         ].map((tech, i) => (
                             <FadeInSection key={tech.name} delay={i * 100}>
                                 <div className="p-5 rounded-2xl bg-white/60 dark:bg-neutral-800/40 border border-neutral-200/60 dark:border-neutral-700/40 text-center hover:border-indigo-300 dark:hover:border-indigo-600 transition-all duration-300 hover:-translate-y-1">
-                                    <div className={`w-12 h-12 mx-auto rounded-xl bg-gradient-to-br ${tech.color} flex items-center justify-center text-white mb-3 shadow-lg text-sm font-bold font-poppins`}>
+                                    <div className="w-12 h-12 mx-auto rounded-xl bg-brand-gradient-br flex items-center justify-center text-white mb-3 shadow-lg text-sm font-bold font-poppins">
                                         {tech.name.charAt(0)}
                                     </div>
                                     <div className="font-poppins font-semibold text-sm brand-primary">{tech.name}</div>
@@ -504,7 +499,7 @@ export default function AboutPage() {
                     <div className="max-w-3xl mx-auto text-center">
                         <h2 className="font-poppins font-bold text-3xl md:text-5xl brand-primary mb-6">
                             Ready to{' '}
-                            <span className="bg-gradient-to-r from-indigo-600 via-purple-500 to-teal-400 bg-clip-text text-transparent">
+                            <span className="text-brand-gradient">
                                 remember more?
                             </span>
                         </h2>
@@ -513,7 +508,7 @@ export default function AboutPage() {
                         </p>
                         <Link
                             href="/"
-                            className="inline-flex px-10 py-4 rounded-xl text-lg font-inter font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 transition-all duration-300 shadow-xl shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:scale-105 hover:-translate-y-0.5"
+                            className="inline-flex px-10 py-4 rounded-xl text-lg font-inter font-semibold text-white bg-brand-gradient hover:brightness-110 transition-all duration-300 shadow-xl shadow-[#2C1D78]/30 hover:shadow-[#2C1D78]/45 hover:scale-105 hover:-translate-y-0.5"
                         >
                             Start Studying for Free →
                         </Link>

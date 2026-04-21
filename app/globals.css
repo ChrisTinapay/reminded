@@ -7,14 +7,27 @@
   --brand-cta-lavender: #818cf8;
   --brand-cta-teal: #2dd4bf;
 
-  /* brand gradient from right to left */
-  --brand-gradient-r: #1f2937;
-  --brand-gradient-l: #58759d;
+  /* primary brand gradient stops (0% / 50% / 100%) */
+  --brand-gradient-0: #2c1d78;
+  --brand-gradient-50: #9a87c6;
+  --brand-gradient-100: #499bac;
 
-  /* secondary brand from right via left */
-  --brand-secondary-gradient-r: #499bac;
-  --brand-secondary-gradient-v: #9a87c6;
-  --brand-secondary-gradient-l: #2c1d78;
+  --brand-secondary-gradient-l: var(--brand-gradient-0);
+  --brand-secondary-gradient-v: var(--brand-gradient-50);
+  --brand-secondary-gradient-r: var(--brand-gradient-100);
+
+  --brand-gradient-linear-to-r: linear-gradient(
+    to right,
+    var(--brand-gradient-0) 0%,
+    var(--brand-gradient-50) 50%,
+    var(--brand-gradient-100) 100%
+  );
+  --brand-gradient-linear-to-br: linear-gradient(
+    to bottom right,
+    var(--brand-gradient-0) 0%,
+    var(--brand-gradient-50) 50%,
+    var(--brand-gradient-100) 100%
+  );
 }
 
 [data-theme='dark'] {
@@ -22,10 +35,14 @@
   --brand-cta-lavender: #a5b4fc;
   --brand-cta-teal: #5eead4;
 
-  /* dark secondary brand gradient */
-  --brand-secondary-gradient-l: #f9fafb;
-  --brand-secondary-gradient-v: #9a87c6;
-  --brand-secondary-gradient-r: #499bac;
+  /* same brand gradient in dark mode */
+  --brand-gradient-0: #2c1d78;
+  --brand-gradient-50: #9a87c6;
+  --brand-gradient-100: #499bac;
+
+  --brand-secondary-gradient-l: var(--brand-gradient-0);
+  --brand-secondary-gradient-v: var(--brand-gradient-50);
+  --brand-secondary-gradient-r: var(--brand-gradient-100);
 }
 
 @theme inline {
@@ -44,6 +61,21 @@
 }
 
 @layer utilities {
+  .bg-brand-gradient {
+    background-image: var(--brand-gradient-linear-to-r);
+  }
+
+  .bg-brand-gradient-br {
+    background-image: var(--brand-gradient-linear-to-br);
+  }
+
+  .text-brand-gradient {
+    background-image: var(--brand-gradient-linear-to-r);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
   .brand-background {
     @apply bg-neutral-50 dark:bg-neutral-900 transition-colors duration-400;
   }

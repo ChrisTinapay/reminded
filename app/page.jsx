@@ -108,7 +108,7 @@ export default function Welcome() {
       )}
       <h1 className="mt-12 md:mt-16 text-2xl md:text-3xl font-bold brand-primary">
         Welcome to{' '}
-        <span className="bg-linear-to-r from-brand-l via-brand-v to-brand-r bg-clip-text text-transparent">
+        <span className="text-brand-gradient">
           RemindED.
         </span>
       </h1>

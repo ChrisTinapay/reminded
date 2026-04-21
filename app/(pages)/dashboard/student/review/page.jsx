@@ -127,7 +127,7 @@ export default function GlobalReviewSession() {
             {/* Desktop: centered card, no page scrolling needed */}
             <div className="hidden md:flex min-h-[calc(100dvh-10rem)] items-center justify-center px-6">
                 <div className="w-full max-w-3xl brand-card overflow-hidden">
-                    <div className="h-1.5 bg-gradient-to-r from-indigo-600 to-violet-500" />
+                    <div className="h-1.5 bg-brand-gradient" />
                     <div className="p-6">
                         {/* Header */}
                         <div className="flex items-start justify-between gap-6">

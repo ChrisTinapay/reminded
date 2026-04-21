@@ -68,7 +68,7 @@ export default function Header() {
           {fullName && (
             <h1 className="text-2xl font-semibold font-poppins brand-primary leading-8">
               Welcome,{' '}
-              <span className="bg-linear-to-r from-brand-l via-brand-v to-brand-r bg-clip-text text-transparent">
+              <span className="text-brand-gradient">
                 {fullName}!
               </span>
             </h1>
@@ -88,7 +88,7 @@ export default function Header() {
               className="h-8 w-8 cursor-pointer"
             />
           </Link>
-          <span className="text-lg font-bold font-poppins bg-linear-to-r from-brand-l via-brand-v to-brand-r bg-clip-text text-transparent">
+          <span className="text-lg font-bold font-poppins text-brand-gradient">
             RemindED
           </span>
         </div>
