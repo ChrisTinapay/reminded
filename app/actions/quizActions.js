@@ -59,7 +59,7 @@ export async function getDueQuestions(courseId, materialId = null, clientToday =
       choices: shuffleArray(q.choices),
       correct_answer: q.correctAnswer,
       _is_new: Boolean(q._is_new),
-      retention_state: q.retentionState ?? (q._is_new ? 'Learning' : null),
+      question_state: q.questionState ?? (q._is_new ? 'Learning' : null),
     }))
 
     return { questions: questions.sort(() => Math.random() - 0.5) }
@@ -102,7 +102,7 @@ export async function getGlobalDueQuestions(clientToday = null) {
       course_name: q.courseName,
       topic_name: q.topicName,
       _is_new: Boolean(q._is_new),
-      retention_state: q.retentionState ?? (q._is_new ? 'Learning' : null),
+      question_state: q.questionState ?? (q._is_new ? 'Learning' : null),
     }))
 
     return { questions: questions.sort(() => Math.random() - 0.5) }
@@ -114,12 +114,14 @@ export async function getGlobalDueQuestions(clientToday = null) {
 
 
 // 2. Save Result (SM-2 + immutable telemetry log)
-// Payload: { courseId, questionId, isCorrect, responseLatency, clientToday? }
+// Payload: { courseId, questionId, isCorrect, latency, qualityScore, selectedAnswer?, clientToday? }
 export async function submitQuizResult(payload) {
   const courseId = payload?.courseId
   const questionId = payload?.questionId
   const isCorrect = payload?.isCorrect
-  const responseLatency = payload?.responseLatency
+  const latency = payload?.latency
+  const qualityScore = payload?.qualityScore
+  const selectedAnswer = payload?.selectedAnswer ?? null
   const clientToday = payload?.clientToday ?? null
 
   try {
@@ -135,7 +137,9 @@ export async function submitQuizResult(payload) {
       courseId: String(courseId),
       questionId: String(questionId),
       isCorrect: Boolean(isCorrect),
-      responseLatencySeconds: Number(responseLatency),
+      latencyMs: Number(latency),
+      qualityScore: Number(qualityScore),
+      selectedAnswer: selectedAnswer == null ? null : String(selectedAnswer),
       clientToday,
     })
 

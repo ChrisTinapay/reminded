@@ -18,7 +18,7 @@ export interface DashboardCourse {
   studentId: UserId;
   topicCount: number;
   createdAt: string;
-  /** Counts by `retention_state` among rows due today (null or next_review_date <= today). */
+  /** Counts by `question_state` among rows due today (null or next_review_date <= today). */
   retentionDue: DashboardRetentionDue;
 }
 

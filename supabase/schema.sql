@@ -75,11 +75,11 @@ create table if not exists public.student_progress (
   ease_factor double precision not null default 2.5,
   repetition_n integer not null default 0,
   next_review_date date null,
-  retention_state text not null default 'Familiar',
+  question_state text not null default 'Familiar',
   created_at timestamptz not null default now(),
   unique (user_id, question_id),
-  constraint student_progress_retention_state_check
-    check (retention_state in ('Learning', 'Familiar', 'Mastered'))
+  constraint student_progress_question_state_check
+    check (question_state in ('Learning', 'Familiar', 'Mastered'))
 );
 
 create index if not exists idx_q_course on public.questions(course_id);
@@ -107,12 +107,12 @@ returns table (
   question_text text,
   choices jsonb,
   correct_answer text,
-  retention_state text
+  question_state text
 )
 language sql
 stable
 as $$
-  select q.id, q.course_id, q.material_id, q.question_text, q.choices, q.correct_answer, sp.retention_state
+  select q.id, q.course_id, q.material_id, q.question_text, q.choices, q.correct_answer, sp.question_state
   from public.student_progress sp
   join public.questions q on q.id = sp.question_id
   where sp.user_id = p_user_id
@@ -136,12 +136,12 @@ returns table (
   question_text text,
   choices jsonb,
   correct_answer text,
-  retention_state text
+  question_state text
 )
 language sql
 stable
 as $$
-  select q.id, q.course_id, q.material_id, q.question_text, q.choices, q.correct_answer, 'Learning'::text as retention_state
+  select q.id, q.course_id, q.material_id, q.question_text, q.choices, q.correct_answer, 'Learning'::text as question_state
   from public.questions q
   where q.course_id = p_course_id
     and (p_material_id is null or q.material_id = p_material_id)
@@ -167,7 +167,7 @@ returns table (
   correct_answer text,
   course_name text,
   topic_name text,
-  retention_state text
+  question_state text
 )
 language sql
 stable
@@ -180,7 +180,7 @@ as $$
          q.correct_answer,
          c.course_name as course_name,
          coalesce(lm.topic_name, lm.file_name, 'Unknown') as topic_name,
-         sp.retention_state
+         sp.question_state
   from public.student_progress sp
   join public.questions q on q.id = sp.question_id
   join public.courses c on c.id = sp.course_id
@@ -204,7 +204,7 @@ returns table (
   correct_answer text,
   course_name text,
   topic_name text,
-  retention_state text
+  question_state text
 )
 language sql
 stable
@@ -217,7 +217,7 @@ as $$
          q.correct_answer,
          c.course_name as course_name,
          coalesce(lm.topic_name, lm.file_name, 'Unknown') as topic_name,
-         'Learning'::text as retention_state
+         'Learning'::text as question_state
   from public.questions q
   join public.courses c on c.id = q.course_id
   left join public.learning_materials lm on lm.id = q.material_id
@@ -390,6 +390,7 @@ create table if not exists public.review_telemetry_logs (
   response_latency double precision not null,
   is_correct boolean not null,
   quality_score_q integer not null,
+  selected_answer text null,
   repetition_n integer not null,
   easiness_factor_ef double precision not null,
   next_interval_i integer not null,
@@ -432,6 +433,7 @@ create or replace function public.apply_review_with_telemetry (
   p_response_latency double precision,
   p_is_correct boolean,
   p_quality_score_q integer,
+  p_selected_answer text,
   p_repetition_n integer,
   p_easiness_factor_ef double precision,
   p_next_interval_i integer,
@@ -446,7 +448,7 @@ declare
   v_ef1 double precision;
   v_ef2 double precision;
   v_avg_ef double precision;
-  v_retention text;
+  v_question_state text;
 begin
   select l.easiness_factor_ef into v_ef1
   from public.review_telemetry_logs l
@@ -470,17 +472,17 @@ begin
     end if;
 
     if v_avg_ef > 2.5 then
-      v_retention := 'Mastered';
+      v_question_state := 'Mastered';
     elsif p_easiness_factor_ef >= 2.5 then
-      v_retention := 'Familiar';
+      v_question_state := 'Familiar';
     else
-      v_retention := 'Learning';
+      v_question_state := 'Learning';
     end if;
   else
     if p_easiness_factor_ef >= 2.5 then
-      v_retention := 'Familiar';
+      v_question_state := 'Familiar';
     else
-      v_retention := 'Learning';
+      v_question_state := 'Learning';
     end if;
   end if;
 
@@ -492,7 +494,7 @@ begin
     ease_factor,
     repetition_n,
     next_review_date,
-    retention_state
+    question_state
   )
   values (
     p_user_id,
@@ -502,7 +504,7 @@ begin
     p_easiness_factor_ef,
     p_repetition_n,
     p_next_review_date,
-    v_retention
+    v_question_state
   )
   on conflict (user_id, question_id) do update
   set
@@ -511,7 +513,7 @@ begin
     ease_factor = excluded.ease_factor,
     repetition_n = excluded.repetition_n,
     next_review_date = excluded.next_review_date,
-    retention_state = excluded.retention_state;
+    question_state = excluded.question_state;
 
   insert into public.review_telemetry_logs (
     user_id,
@@ -520,6 +522,7 @@ begin
     response_latency,
     is_correct,
     quality_score_q,
+    selected_answer,
     repetition_n,
     easiness_factor_ef,
     next_interval_i
@@ -531,6 +534,7 @@ begin
     p_response_latency,
     p_is_correct,
     p_quality_score_q,
+    p_selected_answer,
     p_repetition_n,
     p_easiness_factor_ef,
     p_next_interval_i
@@ -539,10 +543,10 @@ end;
 $$;
 
 revoke all on function public.apply_review_with_telemetry (
-  uuid, bigint, bigint, double precision, boolean, integer, integer, double precision, integer, date
+  uuid, bigint, bigint, double precision, boolean, integer, text, integer, double precision, integer, date
 ) from public;
 
 grant execute on function public.apply_review_with_telemetry (
-  uuid, bigint, bigint, double precision, boolean, integer, integer, double precision, integer, date
+  uuid, bigint, bigint, double precision, boolean, integer, text, integer, double precision, integer, date
 ) to service_role;
 

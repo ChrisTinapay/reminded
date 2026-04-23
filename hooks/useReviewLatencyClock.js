@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useLayoutEffect, useCallback } from 'react'
+import { useRef, useLayoutEffect, useCallback } from 'react'
 
 /**
  * Starts a high-resolution clock after the question shell has painted (double rAF).
@@ -9,7 +9,6 @@ import { useRef, useState, useLayoutEffect, useCallback } from 'react'
 export function useReviewLatencyClock ({ enabled, questionKey }) {
   const startMsRef = useRef(null)
   const rafRef = useRef(null)
-  const [displaySeconds, setDisplaySeconds] = useState(0)
 
   useLayoutEffect(() => {
     if (!enabled) {
@@ -19,8 +18,6 @@ export function useReviewLatencyClock ({ enabled, questionKey }) {
       return undefined
     }
 
-    setDisplaySeconds(0)
-
     let outer = 0
     let inner = 0
 
@@ -29,13 +26,6 @@ export function useReviewLatencyClock ({ enabled, questionKey }) {
         inner = requestAnimationFrame(() => {
           const t0 = performance.now()
           startMsRef.current = t0
-          const tick = () => {
-            const s = startMsRef.current
-            if (s == null) return
-            setDisplaySeconds((performance.now() - s) / 1000)
-            rafRef.current = requestAnimationFrame(tick)
-          }
-          rafRef.current = requestAnimationFrame(tick)
         })
       })
     }
@@ -51,7 +41,7 @@ export function useReviewLatencyClock ({ enabled, questionKey }) {
     }
   }, [enabled, questionKey])
 
-  const stopAndGetLatencySeconds = useCallback(() => {
+  const stopAndGetLatencyMs = useCallback(() => {
     if (rafRef.current != null) {
       cancelAnimationFrame(rafRef.current)
       rafRef.current = null
@@ -59,10 +49,8 @@ export function useReviewLatencyClock ({ enabled, questionKey }) {
     const t0 = startMsRef.current
     startMsRef.current = null
     if (t0 == null) return 0
-    const sec = (performance.now() - t0) / 1000
-    setDisplaySeconds(sec)
-    return sec
+    return Math.max(0, Math.round(performance.now() - t0))
   }, [])
 
-  return { displaySeconds, stopAndGetLatencySeconds }
+  return { stopAndGetLatencyMs }
 }

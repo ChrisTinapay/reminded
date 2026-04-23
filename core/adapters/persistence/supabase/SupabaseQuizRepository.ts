@@ -44,7 +44,7 @@ export class SupabaseQuizRepository implements QuizRepository {
       questionText: row.question_text,
       choices: normalizeChoices(row.choices),
       correctAnswer: row.correct_answer,
-      retentionState: row.retention_state ?? undefined,
+      questionState: row.question_state ?? undefined,
     }));
   }
 
@@ -69,7 +69,7 @@ export class SupabaseQuizRepository implements QuizRepository {
       questionText: row.question_text,
       choices: normalizeChoices(row.choices),
       correctAnswer: row.correct_answer,
-      retentionState: row.retention_state ?? undefined,
+      questionState: row.question_state ?? undefined,
     }));
   }
 
@@ -94,7 +94,7 @@ export class SupabaseQuizRepository implements QuizRepository {
       correctAnswer: row.correct_answer,
       courseName: row.course_name ?? undefined,
       topicName: row.topic_name ?? undefined,
-      retentionState: row.retention_state ?? undefined,
+      questionState: row.question_state ?? undefined,
     }));
   }
 
@@ -117,7 +117,7 @@ export class SupabaseQuizRepository implements QuizRepository {
       correctAnswer: row.correct_answer,
       courseName: row.course_name ?? undefined,
       topicName: row.topic_name ?? undefined,
-      retentionState: row.retention_state ?? undefined,
+      questionState: row.question_state ?? undefined,
     }));
   }
 
@@ -147,6 +147,7 @@ export class SupabaseQuizRepository implements QuizRepository {
       p_response_latency: input.responseLatencySeconds,
       p_is_correct: input.isCorrect,
       p_quality_score_q: input.qualityScoreQ,
+      p_selected_answer: input.selectedAnswer,
       p_repetition_n: input.repetitionN,
       p_easiness_factor_ef: input.easinessFactorEf,
       p_next_interval_i: input.nextIntervalI,

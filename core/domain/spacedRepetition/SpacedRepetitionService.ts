@@ -7,26 +7,23 @@ export interface SubmitReviewCommand {
   courseId: CourseId;
   questionId: string;
   isCorrect: boolean;
-  /** Wall-clock seconds from question paint to answer click (float). */
-  responseLatencySeconds: number;
+  /**
+   * Wall-clock milliseconds from question paint to answer click.
+   * Saved for telemetry only; not used for SM-2 math.
+   */
+  latencyMs: number;
+  /** User-provided metacognitive quality score (0-5). */
+  qualityScore: number;
+  /** Exact answer text the student clicked (telemetry only). */
+  selectedAnswer: string | null;
   clientToday?: string | null;
 }
 
 export class SpacedRepetitionService {
   constructor(private readonly quizRepository: QuizRepository) {}
 
-  calculateQuality(isCorrect: boolean, responseLatencySeconds: number): number {
-    if (!isCorrect) return 0;
-    if (responseLatencySeconds <= 10) return 5;
-    if (responseLatencySeconds <= 20) return 4;
-    return 3;
-  }
-
   async submitReview(command: SubmitReviewCommand): Promise<void> {
-    const quality = this.calculateQuality(
-      command.isCorrect,
-      command.responseLatencySeconds,
-    );
+    const quality = Number(command.qualityScore);
 
     const previous = await this.quizRepository.getProgressState(
       command.userId,
@@ -57,9 +54,10 @@ export class SpacedRepetitionService {
       userId: command.userId,
       courseId: command.courseId,
       questionId: command.questionId,
-      responseLatencySeconds: command.responseLatencySeconds,
+      responseLatencySeconds: Number(command.latencyMs),
       isCorrect: command.isCorrect,
       qualityScoreQ: quality,
+      selectedAnswer: command.selectedAnswer,
       repetitionN: updated.repetitions,
       easinessFactorEf: updated.easeFactor,
       nextIntervalI: updated.interval,

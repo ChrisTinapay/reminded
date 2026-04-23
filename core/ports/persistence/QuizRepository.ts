@@ -14,7 +14,7 @@ export interface DueQuestion {
   correctAnswer: string;
   courseName?: string;
   topicName?: string;
-  retentionState?: string;
+  questionState?: string;
 }
 
 export interface StudentProgressState {
@@ -30,6 +30,7 @@ export interface PersistReviewTransactionInput {
   responseLatencySeconds: number;
   isCorrect: boolean;
   qualityScoreQ: number;
+  selectedAnswer: string | null;
   repetitionN: number;
   easinessFactorEf: number;
   nextIntervalI: number;

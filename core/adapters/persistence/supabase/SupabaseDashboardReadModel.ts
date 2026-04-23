@@ -23,7 +23,7 @@ export class SupabaseDashboardReadModel implements DashboardReadModel {
       supabase.rpc("dashboard_due_by_course", { p_user_id: userId, p_today: today }),
       supabase
         .from("student_progress")
-        .select("course_id,retention_state")
+        .select("course_id,question_state")
         .eq("user_id", userId)
         .or(dueOrFilter),
     ]);
@@ -49,7 +49,7 @@ export class SupabaseDashboardReadModel implements DashboardReadModel {
     >();
     for (const row of (dueRetentionRes.data ?? []) as any[]) {
       const cid = String(row.course_id);
-      const st = String(row.retention_state ?? "Familiar");
+      const st = String(row.question_state ?? "Familiar");
       if (!retentionByCourse.has(cid)) {
         retentionByCourse.set(cid, { learning: 0, familiar: 0, mastered: 0 });
       }

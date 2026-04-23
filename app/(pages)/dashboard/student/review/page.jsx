@@ -14,8 +14,12 @@ export default function GlobalReviewSession() {
 
     // Interaction State
     const [selectedChoice, setSelectedChoice] = useState(null)
+    const [selectedAnswer, setSelectedAnswer] = useState(null)
     const [isAnswered, setIsAnswered] = useState(false)
     const [feedback, setFeedback] = useState(null)
+    const [latencyMs, setLatencyMs] = useState(0)
+    const [qualityScore, setQualityScore] = useState(null)
+    const [isSubmitting, setIsSubmitting] = useState(false)
 
     const localToday = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD in user's timezone
 
@@ -25,7 +29,7 @@ export default function GlobalReviewSession() {
         [currentIndex, currentQ?.id],
     )
     const clockEnabled = !loading && !sessionComplete && !isAnswered && questions.length > 0
-    const { displaySeconds, stopAndGetLatencySeconds } = useReviewLatencyClock({
+    const { stopAndGetLatencyMs } = useReviewLatencyClock({
         enabled: clockEnabled,
         questionKey,
     })
@@ -63,26 +67,41 @@ export default function GlobalReviewSession() {
     }, [])
 
     // 3. Handle Answer
-    const handleAnswer = async (choice) => {
+    const handleAnswer = (choice) => {
         if (isAnswered) return
 
-        const responseLatency = stopAndGetLatencySeconds()
+        const ms = stopAndGetLatencyMs()
 
         setIsAnswered(true)
         setSelectedChoice(choice)
+        setSelectedAnswer(choice)
+        setLatencyMs(ms)
 
         const q = questions[currentIndex]
         const isCorrect = choice === q.correct_answer
 
         setFeedback(isCorrect ? 'correct' : 'wrong')
+    }
 
-        await submitQuizResult({
-            courseId: q.course_id,
-            questionId: q.id,
-            isCorrect,
-            responseLatency,
-            clientToday: localToday,
-        })
+    const submitMeta = async (qScore) => {
+        if (qualityScore != null) return
+        setQualityScore(qScore)
+        setIsSubmitting(true)
+        try {
+            const q = questions[currentIndex]
+            const isCorrect = selectedChoice === q.correct_answer
+            await submitQuizResult({
+                courseId: q.course_id,
+                questionId: q.id,
+                isCorrect,
+                latency: latencyMs,
+                qualityScore: qScore,
+                selectedAnswer,
+                clientToday: localToday,
+            })
+        } finally {
+            setIsSubmitting(false)
+        }
     }
 
     // 4. Next Question
@@ -91,7 +110,11 @@ export default function GlobalReviewSession() {
             setCurrentIndex(prev => prev + 1)
             setIsAnswered(false)
             setSelectedChoice(null)
+            setSelectedAnswer(null)
             setFeedback(null)
+            setLatencyMs(0)
+            setQualityScore(null)
+            setIsSubmitting(false)
         } else {
             setSessionComplete(true)
         }
@@ -146,31 +169,7 @@ export default function GlobalReviewSession() {
                                     ) : (
                                         <span className="text-orange-600">Review</span>
                                     )}
-                                    {currentQ.retention_state ? (
-                                        <>
-                                            <span className="text-gray-300 dark:text-white/20">•</span>
-                                            <span
-                                                className={
-                                                    `rounded-full border px-2 py-0.5 text-[10px] font-extrabold tracking-wider ` +
-                                                    (currentQ.retention_state === 'Mastered'
-                                                        ? 'text-[#86efac] border-[#166534]/45 bg-[#0f1a12]'
-                                                        : currentQ.retention_state === 'Learning'
-                                                            ? 'text-[#93c5fd] border-[#1d4ed8]/45 bg-[#0b1220]'
-                                                            : 'text-[#fdba74] border-[#9a3412]/45 bg-[#1f120b]')
-                                                }
-                                            >
-                                                {String(currentQ.retention_state).toUpperCase()}
-                                            </span>
-                                        </>
-                                    ) : null}
                                 </div>
-                            </div>
-                            <div
-                                className={`shrink-0 text-sm font-mono font-bold px-3 py-1 rounded-full transition-colors ${displaySeconds < 10 ? 'bg-green-100 text-green-700' :
-                                    displaySeconds < 20 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
-                                    }`}
-                            >
-                                {displaySeconds.toFixed(1)}s
                             </div>
                         </div>
 
@@ -218,31 +217,132 @@ export default function GlobalReviewSession() {
                             </div>
                         </div>
 
-                        {/* Desktop footer (always in-card, always visible) */}
+                        {/* Desktop footer (always in-card, reserve height to avoid layout shift) */}
                         <div className="mt-5 pt-4 border-t border-gray-100 dark:border-white/10">
-                            <div className="flex items-center justify-between gap-4">
-                                <div className="min-w-0">
-                                    <span className={`font-bold text-base block ${feedback === 'correct' ? 'text-green-800 dark:text-green-200' : feedback === 'wrong' ? 'text-red-800 dark:text-red-200' : 'text-gray-600 dark:text-gray-300'}`}>
-                                        {isAnswered ? (feedback === 'correct' ? 'Correct!' : 'Incorrect') : 'Pick an answer to continue'}
-                                    </span>
-                                    <span className="text-xs text-gray-600 dark:text-gray-300">
-                                        {!isAnswered ? 'After you answer, “Next Question” will appear here.' : (
-                                            <>
-                                                {feedback === 'correct' && displaySeconds <= 10 && "⚡ Super fast! (+5 Quality)"}
-                                                {feedback === 'correct' && displaySeconds > 10 && displaySeconds <= 20 && "👍 Good pace! (+4 Quality)"}
-                                                {feedback === 'correct' && displaySeconds > 20 && "🐢 A bit slow. (+3 Quality)"}
-                                                {feedback === 'wrong' && "Resetting progress."}
-                                            </>
-                                        )}
-                                    </span>
-                                </div>
-                                <button
-                                    onClick={handleNext}
-                                    disabled={!isAnswered}
-                                    className="shrink-0 inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:text-gray-600 dark:disabled:bg-white/10 dark:disabled:text-white/40 text-white px-6 py-3 rounded-xl text-sm font-bold transition shadow-md"
-                                >
-                                    Next Question
-                                </button>
+                            <div className="min-h-[164px]">
+                                {!isAnswered ? (
+                                    <div className="text-sm text-gray-600 dark:text-gray-300 font-semibold">
+                                        Pick an answer to continue
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className={`font-bold text-base ${feedback === 'correct' ? 'text-green-800 dark:text-green-200' : 'text-red-800 dark:text-red-200'}`}>
+                                            {feedback === 'correct' ? 'Correct!' : 'Incorrect'}
+                                        </div>
+
+                                        <div className="mt-3 rounded-2xl border border-gray-100 bg-white/80 p-4 shadow-sm backdrop-blur-sm dark:border-white/10 dark:bg-[#131312]">
+                                            <div className="text-sm font-bold text-gray-800 dark:text-gray-200">
+                                                {feedback === 'correct' ? 'How hard was it to recall this?' : 'What happened?'}
+                                            </div>
+                                            <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                                {feedback === 'correct' ? (
+                                                    <>
+                                                        <button
+                                                            onClick={() => submitMeta(5)}
+                                                            disabled={qualityScore != null || isSubmitting}
+                                                            className={
+                                                                "rounded-xl px-4 py-3 text-sm font-bold border transition-all " +
+                                                                "active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 " +
+                                                                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#131312] " +
+                                                                (qualityScore === 5
+                                                                    ? "border-blue-500/60 bg-blue-600/20 text-blue-900 ring-2 ring-blue-500/35 dark:text-blue-100"
+                                                                    : "border-blue-500/30 bg-blue-500/10 text-blue-900 hover:bg-blue-500/15 dark:bg-blue-500/15 dark:text-blue-100 dark:hover:bg-blue-500/20")
+                                                            }
+                                                        >
+                                                            Easy — 5
+                                                        </button>
+                                                        <button
+                                                            onClick={() => submitMeta(4)}
+                                                            disabled={qualityScore != null || isSubmitting}
+                                                            className={
+                                                                "rounded-xl px-4 py-3 text-sm font-bold border transition-all " +
+                                                                "active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 " +
+                                                                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#131312] " +
+                                                                (qualityScore === 4
+                                                                    ? "border-green-500/60 bg-green-600/20 text-green-900 ring-2 ring-green-500/35 dark:text-green-100"
+                                                                    : "border-green-500/30 bg-green-500/10 text-green-900 hover:bg-green-500/15 dark:bg-green-500/15 dark:text-green-100 dark:hover:bg-green-500/20")
+                                                            }
+                                                        >
+                                                            Good — 4
+                                                        </button>
+                                                        <button
+                                                            onClick={() => submitMeta(3)}
+                                                            disabled={qualityScore != null || isSubmitting}
+                                                            className={
+                                                                "rounded-xl px-4 py-3 text-sm font-bold border transition-all " +
+                                                                "active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 " +
+                                                                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#131312] " +
+                                                                (qualityScore === 3
+                                                                    ? "border-orange-500/60 bg-orange-600/20 text-orange-900 ring-2 ring-orange-500/35 dark:text-orange-100"
+                                                                    : "border-orange-500/30 bg-orange-500/10 text-orange-900 hover:bg-orange-500/15 dark:bg-orange-500/15 dark:text-orange-100 dark:hover:bg-orange-500/20")
+                                                            }
+                                                        >
+                                                            Hard — 3
+                                                        </button>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <button
+                                                            onClick={() => submitMeta(2)}
+                                                            disabled={qualityScore != null || isSubmitting}
+                                                            className={
+                                                                "rounded-xl px-4 py-3 text-sm font-bold border transition-all " +
+                                                                "active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 " +
+                                                                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#131312] " +
+                                                                (qualityScore === 2
+                                                                    ? "border-orange-500/60 bg-orange-600/20 text-orange-900 ring-2 ring-orange-500/35 dark:text-orange-100"
+                                                                    : "border-orange-500/30 bg-orange-500/10 text-orange-900 hover:bg-orange-500/15 dark:bg-orange-500/15 dark:text-orange-100 dark:hover:bg-orange-500/20")
+                                                            }
+                                                        >
+                                                            Careless mistake — 2
+                                                        </button>
+                                                        <button
+                                                            onClick={() => submitMeta(1)}
+                                                            disabled={qualityScore != null || isSubmitting}
+                                                            className={
+                                                                "rounded-xl px-4 py-3 text-sm font-bold border transition-all " +
+                                                                "active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 " +
+                                                                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#131312] " +
+                                                                (qualityScore === 1
+                                                                    ? "border-green-500/60 bg-green-600/20 text-green-900 ring-2 ring-green-500/35 dark:text-green-100"
+                                                                    : "border-green-500/30 bg-green-500/10 text-green-900 hover:bg-green-500/15 dark:bg-green-500/15 dark:text-green-100 dark:hover:bg-green-500/20")
+                                                            }
+                                                        >
+                                                            I remember it now — 1
+                                                        </button>
+                                                        <button
+                                                            onClick={() => submitMeta(0)}
+                                                            disabled={qualityScore != null || isSubmitting}
+                                                            className={
+                                                                "rounded-xl px-4 py-3 text-sm font-bold border transition-all " +
+                                                                "active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 " +
+                                                                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#131312] " +
+                                                                (qualityScore === 0
+                                                                    ? "border-blue-500/60 bg-blue-600/20 text-blue-900 ring-2 ring-blue-500/35 dark:text-blue-100"
+                                                                    : "border-blue-500/30 bg-blue-500/10 text-blue-900 hover:bg-blue-500/15 dark:bg-blue-500/15 dark:text-blue-100 dark:hover:bg-blue-500/20")
+                                                            }
+                                                        >
+                                                            Complete blackout — 0
+                                                        </button>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-3 flex items-center justify-between gap-4">
+                                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                                                {qualityScore == null ? 'Choose an option to submit.' : (isSubmitting ? 'Saving…' : 'Saved.')}
+                                            </div>
+                                            <button
+                                                onClick={handleNext}
+                                                disabled={qualityScore == null || isSubmitting}
+                                                className="shrink-0 inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:text-gray-600 dark:disabled:bg-white/10 dark:disabled:text-white/40 text-white px-6 py-3 rounded-xl text-sm font-bold transition shadow-md"
+                                            >
+                                                Next Question
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -271,11 +371,8 @@ export default function GlobalReviewSession() {
                         )}
                     </div>
 
-                    {/* Visual Timer */}
-                    <div className={`text-sm font-mono font-bold px-3 py-1 rounded-full transition-colors ${displaySeconds < 10 ? 'bg-green-100 text-green-700' :
-                        displaySeconds < 20 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
-                        }`}>
-                        {displaySeconds.toFixed(1)}s
+                    <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                        Daily Review
                     </div>
                 </div>
 
@@ -321,39 +418,112 @@ export default function GlobalReviewSession() {
                     })}
                 </div>
 
-                {/* Footer / Next Button */}
+                {/* Mobile: metacognitive step + Next */}
                 {isAnswered && (
-                    <>
-                        {/* Mobile: fixed action bar (no scrolling needed) */}
-                        <div className="md:hidden fixed inset-x-0 bottom-0 z-50 p-3 pb-[calc(12px+env(safe-area-inset-bottom))]">
-                        <div
-                            className={`
-                w-full p-4 rounded-2xl flex items-center justify-between gap-3 shadow-2xl border backdrop-blur-sm bg-white/95 dark:bg-neutral-900/85
-                ${feedback === 'correct'
-                                    ? 'border-green-200 dark:border-green-500/30'
-                                    : 'border-red-200 dark:border-red-500/30'}
-              `}
-                        >
-                            <div className="min-w-0">
-                                <span className={`font-bold text-base block ${feedback === 'correct' ? 'text-green-800 dark:text-green-200' : 'text-red-800 dark:text-red-200'}`}>
-                                    {feedback === 'correct' ? 'Correct!' : 'Incorrect'}
-                                </span>
-                                <span className="text-xs text-gray-600 dark:text-gray-300">
-                                    {feedback === 'correct' && displaySeconds <= 10 && "⚡ Super fast! (+5 Quality)"}
-                                    {feedback === 'correct' && displaySeconds > 10 && displaySeconds <= 20 && "👍 Good pace! (+4 Quality)"}
-                                    {feedback === 'correct' && displaySeconds > 20 && "🐢 A bit slow. (+3 Quality)"}
-                                    {feedback === 'wrong' && "Resetting progress."}
-                                </span>
+                    <div className="md:hidden fixed inset-x-0 bottom-0 z-50 p-3 pb-[calc(12px+env(safe-area-inset-bottom))]">
+                        <div className="w-full rounded-2xl shadow-2xl border border-gray-100/70 bg-white/95 p-4 backdrop-blur-sm dark:border-white/10 dark:bg-[#131312]/95">
+                            <div className={`font-bold text-base ${feedback === 'correct' ? 'text-green-700 dark:text-green-200' : 'text-red-700 dark:text-red-200'}`}>
+                                {feedback === 'correct' ? 'Correct!' : 'Incorrect'}
+                            </div>
+                            <div className="mt-2 text-sm font-bold text-gray-800 dark:text-gray-200">
+                                {feedback === 'correct' ? 'How hard was it to recall this?' : 'What happened?'}
+                            </div>
+                            <div className="mt-3 grid grid-cols-1 gap-2">
+                                {feedback === 'correct' ? (
+                                    <>
+                                        <button
+                                            onClick={() => submitMeta(5)}
+                                            disabled={qualityScore != null || isSubmitting}
+                                            className={
+                                                "rounded-xl px-4 py-3 text-sm font-bold border transition-all " +
+                                                "active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 " +
+                                                (qualityScore === 5
+                                                    ? "border-blue-500/60 bg-blue-600/20 text-blue-900 ring-2 ring-blue-500/35 dark:text-blue-100"
+                                                    : "border-blue-500/30 bg-blue-500/10 text-blue-900 dark:bg-blue-500/15 dark:text-blue-100")
+                                            }
+                                        >
+                                            Easy — 5
+                                        </button>
+                                        <button
+                                            onClick={() => submitMeta(4)}
+                                            disabled={qualityScore != null || isSubmitting}
+                                            className={
+                                                "rounded-xl px-4 py-3 text-sm font-bold border transition-all " +
+                                                "active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 " +
+                                                (qualityScore === 4
+                                                    ? "border-green-500/60 bg-green-600/20 text-green-900 ring-2 ring-green-500/35 dark:text-green-100"
+                                                    : "border-green-500/30 bg-green-500/10 text-green-900 dark:bg-green-500/15 dark:text-green-100")
+                                            }
+                                        >
+                                            Good — 4
+                                        </button>
+                                        <button
+                                            onClick={() => submitMeta(3)}
+                                            disabled={qualityScore != null || isSubmitting}
+                                            className={
+                                                "rounded-xl px-4 py-3 text-sm font-bold border transition-all " +
+                                                "active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 " +
+                                                (qualityScore === 3
+                                                    ? "border-orange-500/60 bg-orange-600/20 text-orange-900 ring-2 ring-orange-500/35 dark:text-orange-100"
+                                                    : "border-orange-500/30 bg-orange-500/10 text-orange-900 dark:bg-orange-500/15 dark:text-orange-100")
+                                            }
+                                        >
+                                            Hard — 3
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <button
+                                            onClick={() => submitMeta(2)}
+                                            disabled={qualityScore != null || isSubmitting}
+                                            className={
+                                                "rounded-xl px-4 py-3 text-sm font-bold border transition-all " +
+                                                "active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 " +
+                                                (qualityScore === 2
+                                                    ? "border-orange-500/60 bg-orange-600/20 text-orange-900 ring-2 ring-orange-500/35 dark:text-orange-100"
+                                                    : "border-orange-500/30 bg-orange-500/10 text-orange-900 dark:bg-orange-500/15 dark:text-orange-100")
+                                            }
+                                        >
+                                            Careless mistake — 2
+                                        </button>
+                                        <button
+                                            onClick={() => submitMeta(1)}
+                                            disabled={qualityScore != null || isSubmitting}
+                                            className={
+                                                "rounded-xl px-4 py-3 text-sm font-bold border transition-all " +
+                                                "active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 " +
+                                                (qualityScore === 1
+                                                    ? "border-green-500/60 bg-green-600/20 text-green-900 ring-2 ring-green-500/35 dark:text-green-100"
+                                                    : "border-green-500/30 bg-green-500/10 text-green-900 dark:bg-green-500/15 dark:text-green-100")
+                                            }
+                                        >
+                                            I remember it now — 1
+                                        </button>
+                                        <button
+                                            onClick={() => submitMeta(0)}
+                                            disabled={qualityScore != null || isSubmitting}
+                                            className={
+                                                "rounded-xl px-4 py-3 text-sm font-bold border transition-all " +
+                                                "active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 " +
+                                                (qualityScore === 0
+                                                    ? "border-blue-500/60 bg-blue-600/20 text-blue-900 ring-2 ring-blue-500/35 dark:text-blue-100"
+                                                    : "border-blue-500/30 bg-blue-500/10 text-blue-900 dark:bg-blue-500/15 dark:text-blue-100")
+                                            }
+                                        >
+                                            Complete blackout — 0
+                                        </button>
+                                    </>
+                                )}
                             </div>
                             <button
                                 onClick={handleNext}
-                                className="shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-xl font-bold transition shadow-md"
+                                disabled={qualityScore == null || isSubmitting}
+                                className="mt-3 w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-white/10 disabled:text-white/40 text-white px-5 py-3 rounded-xl font-bold transition shadow-md"
                             >
                                 Next
                             </button>
                         </div>
                     </div>
-                    </>
                 )}
 
             </div>
