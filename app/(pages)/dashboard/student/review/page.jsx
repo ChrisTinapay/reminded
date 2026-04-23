@@ -294,7 +294,7 @@ export default function GlobalReviewSession() {
                                                                     : "border-orange-500/30 bg-orange-500/10 text-orange-900 hover:bg-orange-500/15 dark:bg-orange-500/15 dark:text-orange-100 dark:hover:bg-orange-500/20")
                                                             }
                                                         >
-                                                            Careless mistake — 2
+                                                            Slipped up — 2
                                                         </button>
                                                         <button
                                                             onClick={() => submitMeta(1)}
@@ -308,7 +308,7 @@ export default function GlobalReviewSession() {
                                                                     : "border-green-500/30 bg-green-500/10 text-green-900 hover:bg-green-500/15 dark:bg-green-500/15 dark:text-green-100 dark:hover:bg-green-500/20")
                                                             }
                                                         >
-                                                            I remember it now — 1
+                                                            Hard to remember — 1
                                                         </button>
                                                         <button
                                                             onClick={() => submitMeta(0)}
@@ -322,7 +322,7 @@ export default function GlobalReviewSession() {
                                                                     : "border-blue-500/30 bg-blue-500/10 text-blue-900 hover:bg-blue-500/15 dark:bg-blue-500/15 dark:text-blue-100 dark:hover:bg-blue-500/20")
                                                             }
                                                         >
-                                                            Complete blackout — 0
+                                                            Forgotten — 0
                                                         </button>
                                                     </>
                                                 )}
@@ -484,7 +484,7 @@ export default function GlobalReviewSession() {
                                                     : "border-orange-500/30 bg-orange-500/10 text-orange-900 dark:bg-orange-500/15 dark:text-orange-100")
                                             }
                                         >
-                                            Careless mistake — 2
+                                            Slipped up — 2
                                         </button>
                                         <button
                                             onClick={() => submitMeta(1)}
@@ -497,7 +497,7 @@ export default function GlobalReviewSession() {
                                                     : "border-green-500/30 bg-green-500/10 text-green-900 dark:bg-green-500/15 dark:text-green-100")
                                             }
                                         >
-                                            I remember it now — 1
+                                            Hard to remember — 1
                                         </button>
                                         <button
                                             onClick={() => submitMeta(0)}
@@ -510,7 +510,7 @@ export default function GlobalReviewSession() {
                                                     : "border-blue-500/30 bg-blue-500/10 text-blue-900 dark:bg-blue-500/15 dark:text-blue-100")
                                             }
                                         >
-                                            Complete blackout — 0
+                                            Forgotten — 0
                                         </button>
                                     </>
                                 )}
