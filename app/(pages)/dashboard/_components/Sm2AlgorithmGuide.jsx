@@ -15,58 +15,88 @@ export default function Sm2AlgorithmGuide() {
           <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 leading-relaxed">
             Your <strong>Study Calendar</strong> shows when questions are due. Each review updates an{' '}
             <strong>easiness factor (EF)</strong> and the <strong>interval</strong> (days until the next review)
-            using an <strong>SM-2–style</strong> algorithm: quality from your answer and speed adjusts difficulty and
+            using an <strong>SM-2–style</strong> algorithm: your metacognitive self-assessment adjusts difficulty and
             spacing over time.
           </p>
         </header>
 
         {/* Parameter 1: Quality */}
-        <section className="space-y-4">
+        <section className="space-y-5">
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-300 mb-1">
               Parameter 1
             </p>
             <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Quality score (q)</h3>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
-              After you answer, the app maps <strong>correctness</strong> and{' '}
-              <strong>response time</strong> (seconds) to a quality score <strong>q</strong> from 0–5. That score
-              drives both EF and the next interval.
+              After submitting an answer, you self-assess your recall difficulty to generate a quality score{' '}
+              <strong>q</strong> from 0–5. This metacognitive reflection drives both the{' '}
+              <strong>Easiness Factor (EF)</strong> and your next review interval.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <QualityCard
-              tone="green"
-              title="5 — Strong"
-              condition="Correct, ≤ 10 seconds"
-              body="Highest quality. EF increases the most."
-              efNote="EF +0.10 (from formula)"
-            />
-            <QualityCard
-              tone="amber"
-              title="4 — Solid"
-              condition="Correct, &gt; 10 s and ≤ 20 s"
-              body="Good recall with a short pause. EF changes modestly."
-              efNote="EF +0.00 (from formula)"
-            />
-            <QualityCard
-              tone="orange"
-              title="3 — Hesitant"
-              condition="Correct, &gt; 20 seconds"
-              body="Slower recall. EF decreases — you’ll see the card sooner."
-              efNote="EF −0.14 (from formula)"
-            />
-            <QualityCard
-              tone="red"
-              title="0 — Wrong"
-              condition="Incorrect"
-              body="Interval resets to 1 day and repetitions reset to 0. EF still updates using the formula with q = 0 (it usually decreases)."
-              efNote="Interval → 1 day · reps → 0"
-            />
+          {/* Correct States (Pass) — q = 5, 4, 3 */}
+          <div className="space-y-2">
+            <p className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+              ✓ Correct (Pass)
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <QualityCard
+                tone="green"
+                title="5 — Easy"
+                subtitle="Correct"
+                body="Perfect, instant recall. You knew the answer immediately. EF increases the most."
+                efNote="EF +0.10 (from formula)"
+              />
+              <QualityCard
+                tone="teal"
+                title="4 — Good"
+                subtitle="Correct"
+                body="Solid recall, but required a short pause or brief reflection. EF changes modestly."
+                efNote="EF +0.00 (from formula)"
+              />
+              <QualityCard
+                tone="amber"
+                title="3 — Hard"
+                subtitle="Correct"
+                body="Correct answer, but recalled with serious difficulty. EF decreases — you will see the card sooner."
+                efNote="EF −0.14 (from formula)"
+              />
+            </div>
           </div>
+
+          {/* Incorrect States (Fail) — q = 2, 1, 0 */}
+          <div className="space-y-2">
+            <p className="text-xs font-bold uppercase tracking-wider text-red-600 dark:text-red-400">
+              ✗ Incorrect (Fail)
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <QualityCard
+                tone="orange"
+                title={'2 — Slipped Up'}
+                subtitle="Incorrect"
+                body="Misclick or immediate recognition of the correct answer upon reveal. Memory trace is mostly intact. Interval resets to 1 day."
+                efNote="Interval → 1 day"
+              />
+              <QualityCard
+                tone="rose"
+                title="1 — Hard to remember"
+                subtitle="Incorrect"
+                body="The correct answer sparked the memory, but you could not retrieve it independently. Interval resets to 1 day."
+                efNote="Interval → 1 day"
+              />
+              <QualityCard
+                tone="red"
+                title="0 — Forgotten"
+                subtitle="Incorrect"
+                body="Total memory failure. You have no recollection of learning this concept. Interval resets to 1 day and repetitions reset to 0."
+                efNote="Interval → 1 day · reps → 0"
+              />
+            </div>
+          </div>
+
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            Scheduling uses the seconds above (measured in the quiz from when the question finishes rendering until you
-            tap an answer). The on-screen timer reflects that same clock.
+            Scheduling relies entirely on your honest self-assessment. Accurately reporting your cognitive difficulty
+            ensures the algorithm spaces your reviews optimally.
           </p>
         </section>
 
@@ -161,17 +191,27 @@ export default function Sm2AlgorithmGuide() {
   );
 }
 
-function QualityCard({ tone, title, condition, body, efNote }) {
+function QualityCard({ tone, title, subtitle, body, efNote }) {
   const tones = {
     green: 'border-green-200 bg-green-50/80 dark:bg-green-500/10 dark:border-green-500/25',
+    teal: 'border-teal-200 bg-teal-50/80 dark:bg-teal-500/10 dark:border-teal-500/25',
     amber: 'border-amber-200 bg-amber-50/80 dark:bg-amber-500/10 dark:border-amber-500/25',
     orange: 'border-orange-200 bg-orange-50/80 dark:bg-orange-500/10 dark:border-orange-500/25',
+    rose: 'border-rose-200 bg-rose-50/80 dark:bg-rose-500/10 dark:border-rose-500/25',
     red: 'border-red-200 bg-red-50/80 dark:bg-red-500/10 dark:border-red-500/25',
   };
+
+  const subtitleColors = {
+    Correct: 'text-emerald-600 dark:text-emerald-400',
+    Incorrect: 'text-red-600 dark:text-red-400',
+  };
+
   return (
     <div className={`rounded-2xl border p-4 ${tones[tone]}`}>
       <h4 className="font-bold text-gray-900 dark:text-gray-100">{title}</h4>
-      <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mt-1">{condition}</p>
+      <p className={`text-xs font-semibold mt-1 ${subtitleColors[subtitle] || 'text-gray-600 dark:text-gray-300'}`}>
+        {subtitle}
+      </p>
       <p className="text-sm text-gray-700 dark:text-gray-200 mt-2 leading-relaxed">{body}</p>
       <p className="text-xs font-mono text-gray-600 dark:text-gray-400 mt-2">{efNote}</p>
     </div>
